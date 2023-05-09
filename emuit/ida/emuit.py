@@ -40,8 +40,8 @@ class EmuItPlugin(idaapi.plugin_t):
 
     def init(self):
         self.emu = EmuItIda()
-        self.reset_every_run = False
-        self.beautify = True
+        self.reset_every_run = True
+        self.beautify = False
 
         action_run = idaapi.action_desc_t(
             ACTION_RUN,

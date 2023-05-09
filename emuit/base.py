@@ -78,20 +78,26 @@ class EmuIt(object):
         return self.malloc_ex(None, size)
 
     def malloc_ex(self, address: int = None, size: int = 0x100) -> int:
-        size = (size + 0xFFFF) & ~0xFFFF
+        def align_low(value: int, border: int = 4096):
+            return (value // border) * border
+        
+        def align_high(value: int, border: int = 4096):
+            return (value // border + 1) * border
+        
+        size = align_high(size)
         if address is None:
             if self.mapping:
-                max_address = max(end for start, end in self.mapping)
+                max_address = max(end for _, end in self.mapping)
             else:
                 max_address = 0
 
-            address = (max_address + 0xFFFF) & ~0xFFFF
+            address = align_high(max_address)
             block = (address, address + size)
             self.mu.mem_map(address, size)
             self.mapping.append(block)
             return address
 
-        address &= ~0xFFFF
+        address = align_low(address)
         block = (address, address + size)
 
         if not self.mapping:
