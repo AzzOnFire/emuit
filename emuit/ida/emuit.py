@@ -12,7 +12,7 @@ assert (sys.version_info >= (3, 5)), "ERROR: EmuIt requires Python 3.6"
 
 
 PLUGIN_NAME = 'EmuIt'
-VERSION = '0.6.0'
+VERSION = '0.6.1'
 PLUGIN_HOTKEY = 'Shift+C'
 
 ACTION_RUN = 'EmuIt:run'
@@ -39,7 +39,13 @@ class EmuItPlugin(idaapi.plugin_t):
         print(' ' * 52, '\n', '=' * 52)
 
     def init(self):
-        self.emu = EmuItIda()
+        try:
+            self.emu = EmuItIda()
+        except Exception as e:
+            print('EmuIt: an error occurred during initialization:', str(e))
+            print('EmuIt: try to rebase program and reopen IDB')
+            return idaapi.PLUGIN_SKIP
+
         self.reset_every_run = True
         self.beautify = False
 
@@ -141,7 +147,8 @@ class EmuItPlugin(idaapi.plugin_t):
         self.beautify = bool(not self.beautify)
 
     def term(self):
-        self.hooks.unhook()
+        if hasattr(self, 'hooks'):
+            self.hooks.unhook()
         print(f'EmuIt {VERSION} terminated.')
 
     def run(self, arg):
