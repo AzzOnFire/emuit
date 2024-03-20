@@ -160,9 +160,8 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         pass
 
     def finish_populating_widget_popup(self, widget, popup):
-        # Disassembly window
-        # if (idaapi.get_widget_type(widget) != idaapi.BWN_DISASMS):
-        #    return 0
+        if (idaapi.get_widget_type(widget) not in {idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE}):
+            return 0
 
         tree = PLUGIN_NAME + " settings"
         attach = idaapi.attach_action_to_popup

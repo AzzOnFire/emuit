@@ -6,19 +6,10 @@
 - Automate process of config extraction
 
 ### Quick example
-![QuickExample](./resources/example.png)
+![QuickExample](./images/example.png)
 
 ### Installation
-if you have installed `git`:
-```shell
-pip install https+git://github.com/AzzOnFire/emuit
-```
-or download/clone repository, `cd` inside and run
-```shell
-pip install .
-```
-
-For plugin support move `emuit/ida/emuit.py` to `%IDA_HOME%/plugins` directory
+Copy `emuit.py` and `emuit` directory to `plugins` directory in `%IDA_HOME%` or `%IDA_USER%`
 
 ### Examples
 ```python
