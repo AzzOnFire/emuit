@@ -32,7 +32,7 @@ class EmuItIda(EmuItX86_64):
 
         super().__init__(bitness=bitness)
 
-    def luckycall(self, func_call_ea: int, force: bool = False):
+    def luckycall(self, func_call_ea: int, force: bool = True):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:
             raise ValueError('Wrong call address '
@@ -40,15 +40,20 @@ class EmuItIda(EmuItX86_64):
 
         func_ea = refs[0]
         func = ida_funcs.get_func(func_ea)
-        start = func.start_ea
+        ea = func.start_ea
 
-        if func.regargqty != 0:
-            if force:
-                raise NotImplementedError('Ooooops, not implemented! '
-                                          'Wait for your pull request!')
-            else:
-                raise AttributeError(f'Please edit/apply function {start:0X} '
-                                     f'prototype or provide "force" flag')
+        if force:
+            tinfo = idaapi.tinfo_t()
+            if not idaapi.get_tinfo(tinfo, ea):
+                raise ValueError(f"No type information for function at 0x{ea:X}")
+            
+            if not idaapi.apply_tinfo(ea, tinfo, idaapi.TINFO_DEFINITE):
+                raise ValueError(f"Failed to apply prototype at 0x{ea:X}")
+            
+            idc.plan_and_wait(ea, ea + 1)
+        elif func.regargqty != 0:
+            raise AttributeError(f'Please manually edit/apply function {ea:0X} '
+                                    f'prototype or provide "force" flag')
 
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
