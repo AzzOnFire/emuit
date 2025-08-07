@@ -121,9 +121,10 @@ class EmuIt(object):
         return None
 
     def free(self, address: int) -> None:
-        for _, (start, end) in enumerate(self.mapping):
+        for i, (start, end) in enumerate(self.mapping):
             if start <= address <= end:
                 self.mu.mem_unmap(start, end - start)
+                del self.mapping[i]
                 return
 
         raise ValueError(f'Can\'t free memory at {address:0X}')
