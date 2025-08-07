@@ -148,9 +148,17 @@ class EmuIt(object):
         self.mu.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
                          self._hook_mem_invalid_write,
                          user_data)
-        self.mu.hook_add(uc.UC_HOOK_CODE,
-                         self._hook_code,
-                         arg1=uc.x86_const.UC_X86_INS_CALL)
+
+        # FIXME workaround for latest unicorn versions
+        try:
+            self.mu.hook_add(uc.UC_HOOK_CODE,
+                            self._hook_code,
+                            aux1=uc.x86_const.UC_X86_INS_CALL)
+        except TypeError:
+
+            self.mu.hook_add(uc.UC_HOOK_CODE,
+                            self._hook_code,
+                            arg1=uc.x86_const.UC_X86_INS_CALL)
 
         try:
             self.mu.emu_start(start_ea, end_ea)
