@@ -88,6 +88,22 @@ class EmuItIda(EmuItX86_64):
         func = ida_funcs.get_func(func_ea)
         return super().stdcall(func.start_ea, func.end_ea, *stack_args)
 
+    def _hook_unmapped(self, uc, access, address, size, value, data):
+        n = ida_segment.get_segm_num(address)
+        seg = ida_segment.getnseg(n)
+        if not seg:
+            return False
+
+        try:
+            size = seg.end_ea - seg.start_ea
+            self.malloc_ex(seg.start_ea, size)
+            self[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
+        except Exception as e:
+            print(e)
+            return False
+
+        return True
+
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         ip = self['*IP']
         insn = ida_ua.insn_t()
@@ -126,38 +142,6 @@ class EmuItIda(EmuItX86_64):
             source = slice(start, stop)
 
         return super().__getitem__(source)
-
-    def reset(self):
-        super().reset()
-        self._init_image()
-
-    def _init_image(self):
-        def concat_intervals(intervals: list):
-            i = 0
-            while i < len(intervals) - 1:
-                i += 1
-                prev_start, prev_end = intervals[i - 1]
-                current_start, current_end = intervals[i]
-
-                if (current_start - prev_end) < 0xFFFF:
-                    intervals[i - 1:i + 1] = [(prev_start, current_end)]
-                    i -= 1
-
-            return intervals
-
-        count = ida_segment.get_segm_qty()
-        segments = [ida_segment.getnseg(n) for n in range(count)]
-        segments = [(seg.start_ea, seg.end_ea) for seg in segments]
-        mapping = concat_intervals(segments)
-
-        for start, end in mapping:
-            if not self.query(start):
-                self.malloc_ex(start, end - start)
-
-        for n in range(count):
-            seg = ida_segment.getnseg(n)
-            data = ida_bytes.get_bytes(seg.start_ea, seg.end_ea - seg.start_ea)
-            self[seg.start_ea] = data
 
     def _skip_api_call(self, call_ea: int):
         insn = ida_ua.insn_t()

@@ -137,6 +137,9 @@ class EmuIt(object):
         user_data.update([address + offset for offset in range(0, size)])
         return True
 
+    def _hook_unmapped(self, uc, access, address, size, value, data):
+        return False
+
     def _hook_code(self, uc, address, size, user_data):
         # print(hex(address), size)
         pass
@@ -149,17 +152,11 @@ class EmuIt(object):
         self.mu.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
                          self._hook_mem_invalid_write,
                          user_data)
-
-        # FIXME workaround for latest unicorn versions
-        try:
-            self.mu.hook_add(uc.UC_HOOK_CODE,
-                            self._hook_code,
-                            aux1=uc.x86_const.UC_X86_INS_CALL)
-        except TypeError:
-
-            self.mu.hook_add(uc.UC_HOOK_CODE,
-                            self._hook_code,
-                            arg1=uc.x86_const.UC_X86_INS_CALL)
+        self.mu.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, 
+                         self._hook_unmapped)
+        self.mu.hook_add(uc.UC_HOOK_CODE,
+                        self._hook_code,
+                        aux1=uc.x86_const.UC_X86_INS_CALL)
 
         try:
             self.mu.emu_start(start_ea, end_ea)

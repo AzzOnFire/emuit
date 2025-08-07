@@ -40,7 +40,14 @@ class EmuItX86_64(EmuIt):
         return self.stdcall(start_ea, end_ea, *stack_args)
 
     def reset(self):
-        self._init_stack()
+        for start, _ in self.mapping:
+            self.free(start)
+        
+        try:
+            self._init_stack()
+        except Exception as e:
+            print('Unable to allocate stack')
+            pass
 
     def _init_stack(self):
         base, size = self.STACK_BASE, self.STACK_SIZE
