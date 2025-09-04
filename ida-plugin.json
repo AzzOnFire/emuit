@@ -1,0 +1,12 @@
+{
+    "IDAMetadataDescriptorVersion": 1,
+    "plugin": {
+      "name": "EmuIt",
+      "entryPoint": "emuit",
+      "categories": ["debugging-and-tracing"],
+      "logoPath": "images/logo.png",
+      "idaVersions": ">=8.3",
+      "description" : "Easy-to-use IDA PRO emulator plugin based on unicorn",
+      "version": "0.3.2"
+    }
+}
