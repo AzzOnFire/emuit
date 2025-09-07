@@ -1,16 +1,21 @@
 from typing import Union
 
-from .base import EmuIt
+from .base import EmuArch
+from emuit import EmuIt
 
 import unicorn as uc
 
 
-class EmuItX86_64(EmuIt):
+class EmuArchX86(EmuArch):
     STACK_BASE = 0x200000
     STACK_SIZE = 0x150000
 
-    def __init__(self, bitness: int):
-        mode = {32: uc.UC_MODE_32, 64: uc.UC_MODE_64}.get(bitness)
+    def __init__(self, emu: EmuIt):
+        mode = {
+            32: uc.UC_MODE_32, 
+            64: uc.UC_MODE_64
+        }.get(bitness)
+
         if mode is None:
             raise ValueError('Bitsize must be 32 (x86) or 64 (x64)')
 
@@ -18,11 +23,11 @@ class EmuItX86_64(EmuIt):
 
     def stdcall(self, start_ea: int, end_ea: int, *stack_args):
         for arg in reversed(stack_args):
-            self.push(self.parse_argument(arg))
+            self.stack_push(self.parse_argument(arg))
 
-        self.push(0)    # dummy return address
-        result = self.run(start_ea, end_ea)
-        self.pop()
+        self.stack_push(0)    # dummy return address
+        result = self._emu.run(start_ea, end_ea)
+        self.stack_pop()
 
         return result
 
@@ -52,26 +57,10 @@ class EmuItX86_64(EmuIt):
     def _init_stack(self):
         base, size = self.STACK_BASE, self.STACK_SIZE
         if not self.query(base):
-            self.malloc_ex(base, size)
+            self._emu.mem.malloc_ex(base, size)
 
         self['*SP'] = base + (size // 2) & ~0xFF
         self['*BP'] = base + (3 * size // 4) & ~0xFF
-
-    def push(self, value: Union[int, str, bytes]):
-        self['*SP'] -= self.bytesize
-
-        if isinstance(value, (bytes, str)):
-            buffer = self.malloc(len(value))
-            self[buffer] = value
-            value = buffer
-
-        self[self['*SP']] = value
-
-    def pop(self):
-        sp = self['*SP']
-        data = self[sp:sp + self.bytesize]
-        self['*SP'] += self.bytesize
-        return data
 
     def _reg_parse(self, register: str):
         if register.startswith('*'):
