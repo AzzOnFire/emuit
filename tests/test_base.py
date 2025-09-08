@@ -8,7 +8,7 @@ def emuit_x64() -> EmuItX86_64:
     return EmuItX86_64(bitness=64)
 
 
-def test_malloc(emuit_x64: EmuItX86_64):
+def test_map_anywhere(emuit_x64: EmuItX86_64):
     size = 512
     buffer_ea = emuit_x64.malloc(size)
     assert isinstance(buffer_ea, int)

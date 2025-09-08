@@ -1,6 +1,7 @@
 from typing import Union
 
 from .base import EmuArch
+from .regs import EmuRegs
 from emuit import EmuIt
 
 import unicorn as uc
@@ -32,15 +33,15 @@ class EmuArchX86(EmuArch):
         return result
 
     def thiscall(self, start_ea: int, end_ea: int, this: int, *stack_args):
-        self['ECX'] = this
+        self.regs['ECX'] = this
         return self.stdcall(start_ea, end_ea, *stack_args)
 
     def fastcall(self, start_ea: int, end_ea: int,
                  rcx=None, rdx=None, r8=None, r9=None, *stack_args):
-        if rcx is not None: self['RCX'] = rcx
-        if rdx is not None: self['RDX'] = rdx
-        if r8 is not None: self['R8'] = r8
-        if r9 is not None: self['R9'] = r9
+        if rcx is not None: self.regs['RCX'] = rcx
+        if rdx is not None: self.regs['RDX'] = rdx
+        if r8 is not None: self.regs['R8'] = r8
+        if r9 is not None: self.regs['R9'] = r9
 
         return self.stdcall(start_ea, end_ea, *stack_args)
 
@@ -59,13 +60,5 @@ class EmuArchX86(EmuArch):
         if not self.query(base):
             self._emu.mem.malloc_ex(base, size)
 
-        self['*SP'] = base + (size // 2) & ~0xFF
+        self.regs.arch_sp = base + (size // 2) & ~0xFF
         self['*BP'] = base + (3 * size // 4) & ~0xFF
-
-    def _reg_parse(self, register: str):
-        if register.startswith('*'):
-            prefix = 'R' if self.bitsize == 64 else 'E'
-            register = register.replace('*', prefix)
-
-        register = register.upper()
-        return getattr(uc.x86_const, f'UC_X86_REG_{register}')
