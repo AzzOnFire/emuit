@@ -58,7 +58,7 @@ class EmuArchX86(EmuArch):
     def _init_stack(self):
         base, size = self.STACK_BASE, self.STACK_SIZE
         if not self.query(base):
-            self._emu.mem.malloc_ex(base, size)
+            self._emu.mem.map(base, size)
 
         self.regs.arch_sp = base + (size // 2) & ~0xFF
         self['*BP'] = base + (3 * size // 4) & ~0xFF

@@ -1,6 +1,6 @@
 from typing import Any, Union
 
-from .x86_64 import EmuItX86_64
+from .base import EmuIt
 
 import idaapi
 import ida_ida
@@ -15,7 +15,7 @@ import ida_name
 import idc
 
 
-class EmuItIda(EmuItX86_64):
+class EmuItIda(EmuIt):
     SKIP_WRITE_MEM_INSNS = {
         ida_allins.NN_call, ida_allins.NN_callfi, ida_allins.NN_callni,
         ida_allins.NN_enter, ida_allins.NN_enterw,
@@ -105,9 +105,8 @@ class EmuItIda(EmuItX86_64):
         return True
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
-        ip = self['*IP']
         insn = ida_ua.insn_t()
-        inslen = ida_ua.decode_insn(insn, ip)
+        inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if not inslen or insn.itype in self.SKIP_WRITE_MEM_INSNS:
             return
 
@@ -115,8 +114,7 @@ class EmuItIda(EmuItX86_64):
 
     def _hook_code(self, uc, address, size, user_data):
         if self.skip_api_calls:
-            ip = self['*IP']
-            self._skip_api_call(ip)
+            self._skip_api_call(self.arch.regs.arch_pc)
 
     @staticmethod
     def _resolve_name(value: Union[Any, str]):
@@ -162,9 +160,9 @@ class EmuItIda(EmuItX86_64):
                 # TODO understand why argsize attribute
                 # do not working with api calls
                 if 'push' in arg_insn.get_canon_mnem():
-                    self['*SP'] += self.bytesize
+                    self.arch.regs.arch_sp += self.bytesize
 
-            self['*IP'] += inslen
+            self.arch.regs.arch_pc += inslen
 
     @staticmethod
     def _is_api_call(call_ea: int):

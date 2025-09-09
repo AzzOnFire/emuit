@@ -21,11 +21,16 @@ class EmuIt(object):
         self.bytesize = bitness // 8
         self.engine = uc.Uc(arch, mode)
         self._mem = EmuMemory(self.engine, ptr_size=(bitness // 8))
+        self._arch: EmuArchBase = None
         self.reset()
 
     @property
     def mem(self) -> EmuMemory:
         return self._mem
+
+    @property
+    def arch(self) -> EmuArchBase:
+        return self._arch
 
     def reset(self):
         pass

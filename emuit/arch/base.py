@@ -26,3 +26,7 @@ class EmuArch(ABC):
         data = self[sp:sp + self.bytesize]
         self.regs.arch_sp += self.bytesize
         return data
+    
+    @staticmethod
+    def _resolve_location(location: Union[int, str]):
+        return location
