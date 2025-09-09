@@ -30,13 +30,47 @@ class EmuItIda(EmuIt):
         self.skip_api_calls = skip_api_calls
         bitness = 64 if ida_ida.inf_is_64bit() else 32
 
+    def _get_bitness_info():
+        info = idaapi.get_inf_structure()
+        if info.is_64bit():     # ida_ida.inf_is_64bit()
+            return 64
+        elif info.is_32bit():   # ida_ida.inf_is_32bit_exactly()
+            return 32
+        else:
+            return 16           # ida_ida.inf_is_16bit()
+
+    def _get_arch_info():
+        # ida_ida.inf_get_procname() in IDA >=9.0
+        info = idaapi.get_inf_structure()
+        proc = info.procname.lower()
+
+        if proc == "metapc":
+            result = "x86"
+            if info.is_64bit():
+                result = "x8664"
+        elif "mips" in proc:
+        elif "arm" in proc or "arm64" in proc:
+        elif "ppc" in proc:
+        elif "riscv" in proc:
+        elif "s390" in proc:
+        elif "tricore" in proc:
+
+        return result
+
+    def __init__(self, arch, mode, bitness: int):
+        self.bitsize = bitness
+        self.bytesize = bitness // 8
+        self.engine = uc.Uc(arch, mode)
+        self._mem = EmuMemory(self.engine, ptr_size=(bitness // 8))
+        self._arch: EmuArchBase = None
+        self.reset()
+
         super().__init__(bitness=bitness)
 
-    def luckycall(self, func_call_ea: int, force: bool = True):
+    def smartcall(self, func_call_ea: int, force: bool = True):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:
-            raise ValueError('Wrong call address '
-                             '(must point to existing function)')
+            raise ValueError('Wrong call address (must point to existing function)')
 
         func_ea = refs[0]
         func = ida_funcs.get_func(func_ea)
@@ -48,11 +82,11 @@ class EmuItIda(EmuIt):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
             
             if not idaapi.apply_tinfo(ea, tinfo, idaapi.TINFO_DEFINITE):
-                raise ValueError(f"Failed to apply prototype at 0x{ea:X}")
+                raise ValueError(f"Failed to apply prototype at 0x{ea:0X}")
             
             idc.plan_and_wait(ea, ea + 1)
         elif func.regargqty != 0:
-            raise AttributeError(f'Please manually edit/apply function {ea:0X} '
+            raise AttributeError(f'Please manually edit/apply function 0x{ea:0X} '
                                     f'prototype or provide "force" flag')
 
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
@@ -68,27 +102,7 @@ class EmuItIda(EmuIt):
         call_length = ida_ua.decode_insn(ida_ua.insn_t(), func_call_ea)
         return self.run(func_call_ea, func_call_ea + call_length)
 
-    def fastcall(self, function: Union[int, str],
-                 rcx=None, rdx=None, r8=None, r9=None, *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().fastcall(
-            func.start_ea,
-            func.end_ea,
-            rcx=rcx, rdx=rdx, r8=r8, r9=r9,
-            *stack_args)
-
-    def thiscall(self, function: Union[int, str], this: int, *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().thiscall(func.start_ea, func.end_ea, this, *stack_args)
-
-    def stdcall(self, function: Union[int, str], *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().stdcall(func.start_ea, func.end_ea, *stack_args)
-
-    def _hook_unmapped(self, uc, access, address, size, value, data):
+    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, data):
         n = ida_segment.get_segm_num(address)
         seg = ida_segment.getnseg(n)
         if not seg:
@@ -96,7 +110,7 @@ class EmuItIda(EmuIt):
 
         try:
             size = seg.end_ea - seg.start_ea
-            self.malloc_ex(seg.start_ea, size)
+            self.mem.map(seg.start_ea, size)
             self[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
         except Exception as e:
             print(e)
@@ -117,29 +131,13 @@ class EmuItIda(EmuIt):
             self._skip_api_call(self.arch.regs.arch_pc)
 
     @staticmethod
-    def _resolve_name(value: Union[Any, str]):
+    def _get_name_ea(value: Union[Any, str]):
         if isinstance(value, str):
             ea = idaapi.get_name_ea(idaapi.BADADDR, value)
             if ea != idaapi.BADADDR:
                 return ea
 
         return value
-
-    def __setitem__(self, destination: Union[str, int], value: Any):
-        if isinstance(destination, str):
-            destination = self._resolve_name(destination)
-
-        return super().__setitem__(destination, value)
-
-    def __getitem__(self, source: Union[str, slice]):
-        if isinstance(source, str):
-            source = self._resolve_name(source)
-        elif isinstance(source, slice):
-            start = self._resolve_name(source.start)
-            stop = self._resolve_name(source.stop)
-            source = slice(start, stop)
-
-        return super().__getitem__(source)
 
     def _skip_api_call(self, call_ea: int):
         insn = ida_ua.insn_t()

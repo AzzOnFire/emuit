@@ -1,4 +1,4 @@
-from typing import Union, Optional, Tuple
+from typing import Union
 
 from emuit import EmuIt
 
@@ -91,7 +91,7 @@ class EmuRegs():
     def __setitem__(
             self,
             destination: Union[str, int],
-            value: Union[int, str, bytes]):
+            value: int):
 
         value = self.parse_argument(value)
         reg_id = self._reg_id_by_name(destination)

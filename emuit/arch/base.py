@@ -9,9 +9,14 @@ import unicorn as uc
 
 
 class EmuArch(ABC):
-    def __init__(self, emu: EmuIt):
+    def __init__(self, emu: EmuIt, bitness: int = 64):
         self._emu: EmuIt = emu
         self._regs: EmuRegs = EmuRegs(emu)
+        self._bitness = bitness
+
+    @property
+    def bitness(self) -> int:
+        return bitness
 
     @property
     def regs(self) -> EmuRegs:
