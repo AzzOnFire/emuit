@@ -87,11 +87,10 @@ class EmuMemory(object):
 
         return self.__align_high(max_address)
 
-    def __setitem__(self, key: Union[str, int], value: Union[int, bytes]):
+    def __setitem__(self, key: Union[int, int], value: Union[int, bytes]):
         return self.write(key, value)
 
-    def __getitem__(self, source: Union[str, slice]):
-
+    def __getitem__(self, source: Union[int, slice]) -> Union[int, bytes]:
         if isinstance(source, slice):
             if source.step != 1 and source.step is not None:
                 raise IndexError('step != 1 not supported')
@@ -100,6 +99,8 @@ class EmuMemory(object):
 
             length = source.stop - source.start
             return self.read(source.start, length)
+
+        return self.read(source, self._ptr_size)
 
     @staticmethod
     def __align_low(value: int, border: int = 4096):
