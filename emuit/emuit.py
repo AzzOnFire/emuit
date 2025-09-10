@@ -9,19 +9,31 @@ if TYPE_CHECKING:
 
 
 from .result import Result
-from .arch import EmuArchBase
+from .arch import EmuArchBase, EmuArchX86
 from .memory import EmuMemory
 
 import unicorn as uc
 
 
 class EmuIt(object):
-    def __init__(self, arch, mode, bitness: int):
-        self.bitsize = bitness
-        self.bytesize = bitness // 8
-        self.engine = uc.Uc(arch, mode)
-        self._mem = EmuMemory(self.engine, ptr_size=(bitness // 8))
+    def __init__(self, uc_architecture: int, uc_bitness: int):
         self._arch: EmuArchBase = None
+        {
+            uc.unicorn_const.UC_ARCH_ARM: EmuArchX86,
+            uc.unicorn_const.UC_ARCH_ARM64: 'ARM64',
+            uc.unicorn_const.UC_ARCH_MIPS: 'MIPS',
+            uc.unicorn_const.UC_ARCH_X86: 'X86',
+            uc.unicorn_const.UC_ARCH_PPC: 'PPC',
+            uc.unicorn_const.UC_ARCH_SPARC: 'SPARC',
+            uc.unicorn_const.UC_ARCH_M68K: 'M68K',
+            uc.unicorn_const.UC_ARCH_RISCV: 'RISCV',
+            uc.unicorn_const.UC_ARCH_S390X: 'S390X',
+            uc.unicorn_const.UC_ARCH_TRICORE: 'TRICORE',
+        }
+
+        self._engine = self._arch.engine
+        self._mem = EmuMemory(self._engine, ptr_size=self._arch.bytesize)
+
         self.reset()
 
     @property

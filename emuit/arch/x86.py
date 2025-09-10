@@ -12,14 +12,6 @@ class EmuArchX86(EmuArch):
     STACK_SIZE = 0x150000
 
     def __init__(self, emu: EmuIt, bitness: int = 64):
-        mode = {
-            16: uc.UC_MODE_16,
-            32: uc.UC_MODE_32, 
-            64: uc.UC_MODE_64,
-        }.get(bitness)
-
-        if mode is None:
-            raise ValueError('Bitness value must be 16, 32 or 64')
 
         super().__init__(emu, bitness=bitness)
 

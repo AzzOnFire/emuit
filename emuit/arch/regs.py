@@ -60,6 +60,25 @@ class EmuRegs():
             uc.tricore_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_SP,
         }[self._emu.uc_arch]
     
+    @property
+    def _bp_name(self):
+        {
+            # uc.arm_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_SP,
+            # uc.arm64_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_SP,
+            uc.mips_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_FP,
+            uc.x86_const.UC_ARCH_X86: (
+                uc.x86_const.UC_X86_REG_RBP if self._emu.uc_mode == uc.x86_const.UC_MODE_64 else (
+                uc.x86_const.UC_X86_REG_EBP if self._emu.uc_mode == uc.x86_const.UC_MODE_32 else 
+                uc.x86_const.UC_X86_REG_BP)
+            ),
+            # uc.ppc_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_1, # R1
+            # uc.sparc_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_SP,
+            # uc.m68k_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_A7,
+            # uc.riscv_const.UC_ARCH_RISCV: uc.riscv_const.UC_RISCV_REG_SP,
+            # uc.s390x_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_R15,
+            # uc.tricore_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_SP,
+        }[self._emu.uc_arch]
+    
     def _reg_id_by_name(self, register: str):
         # bitness-neutral access for x86
         if self._emu.uc_arch == uc.x86_const.UC_ARCH_X86 and register.startswith('*'):
