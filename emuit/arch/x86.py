@@ -11,16 +11,17 @@ class EmuArchX86(EmuArch):
     STACK_BASE = 0x200000
     STACK_SIZE = 0x150000
 
-    def __init__(self, emu: EmuIt):
+    def __init__(self, emu: EmuIt, bitness: int = 64):
         mode = {
+            16: uc.UC_MODE_16,
             32: uc.UC_MODE_32, 
-            64: uc.UC_MODE_64
+            64: uc.UC_MODE_64,
         }.get(bitness)
 
         if mode is None:
-            raise ValueError('Bitsize must be 32 (x86) or 64 (x64)')
+            raise ValueError('Bitness value must be 16, 32 or 64')
 
-        super().__init__(uc.UC_ARCH_X86, mode, bitness)
+        super().__init__(emu, bitness=bitness)
 
     def stdcall(self, start_ea: int, end_ea: int, *stack_args):
         for arg in reversed(stack_args):
@@ -47,7 +48,7 @@ class EmuArchX86(EmuArch):
 
     def reset(self):
         for start, _ in self.mapping:
-            self.free(start)
+            self._emu.mem.unmap(start)
         
         try:
             self._init_stack()
