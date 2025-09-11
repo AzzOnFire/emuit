@@ -7,14 +7,14 @@ class EmuMemory(object):
     def __init__(self, engine: uc.Uc, ptr_size: int = 4):
         self.mapping = []
         self._ptr_size = ptr_size
-        self._engine: uc.Uc = _engine
+        self._engine: uc.Uc = engine
         self._engine.ctl_get_mode()
 
     def map_anywhere(self, size: int) -> int:
         return self.map(None, size)
 
     def map(self, address: int = None, size: int = 0x100) -> int:
-        size = align_high(size)
+        size = self.__align_high(size)
         if address is None:
             address = self.find_free_space(size)            
             block = (address, address + size)
@@ -62,10 +62,10 @@ class EmuMemory(object):
         if not self.query(address):
             raise ValueError(f'Write to unmapped memory at 0x{address:0X}')
 
-        if isinstance(value, int):
-            value = value.to_bytes(self._ptr_size, byteorder='little')
+        if isinstance(data, int):
+            data = data.to_bytes(self._ptr_size, byteorder='little')
 
-        return self._engine.mem_write(int(address), value)
+        return self._engine.mem_write(int(address), data)
 
     def read(self, address: Union[str, int], size: int) -> bytes:
         return bytes(self.engine.mem_read(address, size))

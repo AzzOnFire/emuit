@@ -2,10 +2,10 @@ from abc import abstractmethod
 from collections import Counter
 from typing import TYPE_CHECKING, Union, Optional, Tuple
 
+
 # See https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
-if TYPE_CHECKING:
-    from .arch.base import QlArch
-    from .os.memory import QlMemoryManager
+#if TYPE_CHECKING:
+#    from .arch.base import QlArch
 
 
 from .result import Result

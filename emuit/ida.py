@@ -1,6 +1,7 @@
 from typing import Any, Union
 
 from .base import EmuIt
+from .utils import IdaUcUtils
 
 import idaapi
 import ida_ida
@@ -13,69 +14,6 @@ import ida_idp
 import ida_funcs
 import ida_name
 import idc
-
-import unicorn as uc
-
-
-class IdaApiWrapper(object):
-
-    @staticmethod
-    def get_bitness():
-        ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
-        if ida_version >= (9, 0):
-            if ida_ida.inf_is_64bit():
-                return 64
-            elif ida_ida.inf_is_32bit_exactly():
-                return 32
-            elif ida_ida.inf_is_16bit():
-                return 16
-            else:
-                raise ValueError('Unknown architecture bitness')
-        else:
-            info = idaapi.get_inf_structure()
-            if info.is_64bit():
-                return 64
-            elif info.is_32bit():
-                return 32
-            else:
-                return 16
-
-    @staticmethod
-    def get_proc_name():
-        ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
-        if ida_version >= (9, 0):
-            proc = ida_ida.inf_get_procname()
-        else:
-            info = idaapi.get_inf_structure()
-            proc = info.procname.lower()
-
-
-    def _get_arch_info():
-        # ida_ida.inf_get_procname() in IDA >=9.0
-        info = idaapi.get_inf_structure()
-        proc = info.procname.lower()
-
-        if proc == "metapc":
-            return uc.unicorn_const.UC_ARCH_X86
-        elif "arm" in proc:
-            return uc.unicorn_const.UC_ARCH_ARM
-            return uc.unicorn_const.UC_ARCH_ARM64
-        elif "mips" in proc:
-            return uc.unicorn_const.UC_ARCH_MIPS # (little or big endian) - mipsl mipsb
-        elif "ppc" in proc:
-            return uc.unicorn_const.UC_ARCH_PPC # (ppc, ppcl - little endian)
-        elif "riscv" in proc:
-            return uc.unicorn_const.UC_ARCH_RISCV
-        elif "s390" in proc: # s390 - 32bit, s390x - 64bit
-            return uc.unicorn_const.UC_ARCH_S390X
-        elif "tricore" in proc:
-            return uc.unicorn_const.UC_ARCH_TRICORE
-        elif "sparc" in proc:
-            return uc.unicorn_const.UC_ARCH_SPARC # sparcb sparcl
-        elif "68k" in proc:
-            return uc.unicorn_const.UC_ARCH_M68K
-
-        return result
 
 
 
@@ -92,46 +30,9 @@ class EmuItIda(EmuIt):
 
     def __init__(self, skip_api_calls=False):
         self.skip_api_calls = skip_api_calls
-        bitness = 64 if ida_ida.inf_is_64bit() else 32
-
-    def _get_bitness_info():
-        ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
-        assert (ida_version >= (9, 0)), "ERROR: EmuIt requires IDA 7.4+"
-        info = idaapi.get_inf_structure()
-        if info.is_64bit():     # ida_ida.inf_is_64bit()
-            return 64
-        elif info.is_32bit():   # ida_ida.inf_is_32bit_exactly()
-            return 32
-        else:
-            return 16           # ida_ida.inf_is_16bit()
-
-    def _get_arch_info():
-        # ida_ida.inf_get_procname() in IDA >=9.0
-        info = idaapi.get_inf_structure()
-        proc = info.procname.lower()
-
-        if proc == "metapc":
-            result = "x86"
-            if info.is_64bit():
-                result = "x8664"
-        elif "mips" in proc:
-        elif "arm" in proc or "arm64" in proc:
-        elif "ppc" in proc:
-        elif "riscv" in proc:
-        elif "s390" in proc:
-        elif "tricore" in proc:
-
-        return result
-
-    def __init__(self, arch, mode, bitness: int):
-        self.bitsize = bitness
-        self.bytesize = bitness // 8
-        self.engine = uc.Uc(arch, mode)
-        self._mem = EmuMemory(self.engine, ptr_size=(bitness // 8))
-        self._arch: EmuArchBase = None
+        uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
         self.reset()
-
-        super().__init__(bitness=bitness)
+        super().__init__(uc_architecture, uc_mode)
 
     def smartcall(self, func_call_ea: int, force: bool = True):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
