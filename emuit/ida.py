@@ -1,6 +1,6 @@
 from typing import Any, Union
 
-from .base import EmuIt
+from .emuit import EmuIt
 from .utils import IdaUcUtils
 
 import idaapi
@@ -31,8 +31,8 @@ class EmuItIda(EmuIt):
     def __init__(self, skip_api_calls=False):
         self.skip_api_calls = skip_api_calls
         uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
-        self.reset()
         super().__init__(uc_architecture, uc_mode)
+        self.reset()
 
     def smartcall(self, func_call_ea: int, force: bool = True):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))

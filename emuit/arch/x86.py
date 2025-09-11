@@ -11,9 +11,12 @@ class EmuArchX86(EmuArch):
     STACK_BASE = 0x200000
     STACK_SIZE = 0x150000
 
-    def __init__(self, emu: EmuIt, bitness: int = 64):
-
-        super().__init__(emu, bitness=bitness)
+    def __init__(self, emu: EmuIt, uc_mode: int):
+        super().__init__(
+            emu,
+            uc_architecture=uc.unicorn_const.UC_ARCH_X86
+            uc_mode=uc_mode
+        )
 
     def stdcall(self, start_ea: int, end_ea: int, *stack_args):
         for arg in reversed(stack_args):

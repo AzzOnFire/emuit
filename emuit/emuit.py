@@ -2,40 +2,30 @@ from abc import abstractmethod
 from collections import Counter
 from typing import TYPE_CHECKING, Union, Optional, Tuple
 
-
 # See https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
-#if TYPE_CHECKING:
-#    from .arch.base import QlArch
+if TYPE_CHECKING:
+    from .arch import EmuArchBase, EmuArchX86
 
-
-from .result import Result
-from .arch import EmuArchBase, EmuArchX86
 from .memory import EmuMemory
+from .result import Result
 
 import unicorn as uc
 
 
 class EmuIt(object):
-    def __init__(self, uc_architecture: int, uc_bitness: int):
+    def __init__(self, uc_architecture: int, uc_mode: int):
         self._arch: EmuArchBase = None
-        {
-            uc.unicorn_const.UC_ARCH_ARM: EmuArchX86,
-            uc.unicorn_const.UC_ARCH_ARM64: 'ARM64',
-            uc.unicorn_const.UC_ARCH_MIPS: 'MIPS',
-            uc.unicorn_const.UC_ARCH_X86: 'X86',
-            uc.unicorn_const.UC_ARCH_PPC: 'PPC',
-            uc.unicorn_const.UC_ARCH_SPARC: 'SPARC',
-            uc.unicorn_const.UC_ARCH_M68K: 'M68K',
-            uc.unicorn_const.UC_ARCH_RISCV: 'RISCV',
-            uc.unicorn_const.UC_ARCH_S390X: 'S390X',
-            uc.unicorn_const.UC_ARCH_TRICORE: 'TRICORE',
-        }
+        
+        if uc_architecture == uc.unicorn_const.UC_ARCH_X86:
+            self._arch = EmuArchX86(self, uc_mode)
+        else:
+            self._arch = EmuArchBase(self, uc_architecture, uc_mode)
 
         self._engine = self._arch.engine
         self._mem = EmuMemory(self._engine, ptr_size=self._arch.bytesize)
 
         self.reset()
-
+    
     @property
     def mem(self) -> EmuMemory:
         return self._mem

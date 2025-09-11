@@ -25,39 +25,39 @@ class EmuRegs():
     @property
     def _pc_name(self) -> int:
         {
-            uc.arm_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_PC,
-            uc.arm64_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_PC,
-            uc.mips_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_PC,
-            uc.x86_const.UC_ARCH_X86: (
-                uc.x86_const.UC_X86_REG_RIP if self._emu.uc_mode == uc.x86_const.UC_MODE_64 else (
-                uc.x86_const.UC_X86_REG_EIP if self._emu.uc_mode == uc.x86_const.UC_MODE_32 else 
+            uc.unicorn_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_PC,
+            uc.unicorn_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_PC,
+            uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_PC,
+            uc.unicorn_const.UC_ARCH_X86: (
+                uc.x86_const.UC_X86_REG_RIP if self._emu.uc_mode == uc.unicorn_const.UC_MODE_64 else (
+                uc.x86_const.UC_X86_REG_EIP if self._emu.uc_mode == uc.unicorn_const.UC_MODE_32 else 
                 uc.x86_const.UC_X86_REG_IP)
             ),
-            uc.ppc_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_PC,
-            uc.sparc_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_PC,
-            uc.m68k_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_PC,
-            uc.riscv_const.UC_ARCH_RISCV: uc.riscv_const.UC_RISCV_REG_PC,
-            uc.s390x_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_PC,
-            uc.tricore_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_PC,
+            uc.unicorn_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_PC,
+            uc.unicorn_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_PC,
+            uc.unicorn_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_PC,
+            uc.unicorn_const.UC_ARCH_RISCV: uc.riscv_const.UC_RISCV_REG_PC,
+            uc.unicorn_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_PC,
+            uc.unicorn_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_PC,
         }
     
     @property
     def _sp_name(self):
         {
-            uc.arm_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_SP,
-            uc.arm64_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_SP,
-            uc.mips_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_SP,
-            uc.x86_const.UC_ARCH_X86: (
-                uc.x86_const.UC_X86_REG_RSP if self._emu.uc_mode == uc.x86_const.UC_MODE_64 else (
-                uc.x86_const.UC_X86_REG_ESP if self._emu.uc_mode == uc.x86_const.UC_MODE_32 else 
+            uc.unicorn_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_SP,
+            uc.unicorn_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_SP,
+            uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_SP,
+            uc.unicorn_const.UC_ARCH_X86: (
+                uc.x86_const.UC_X86_REG_RSP if self._emu.uc_mode == uc.unicorn_const.UC_MODE_64 else (
+                uc.x86_const.UC_X86_REG_ESP if self._emu.uc_mode == uc.unicorn_const.UC_MODE_32 else 
                 uc.x86_const.UC_X86_REG_SP)
             ),
-            uc.ppc_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_1, # R1
-            uc.sparc_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_SP,
-            uc.m68k_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_A7,
-            uc.riscv_const.UC_ARCH_RISCV: uc.riscv_const.UC_RISCV_REG_SP,
-            uc.s390x_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_R15,
-            uc.tricore_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_SP,
+            uc.unicorn_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_1, # R1
+            uc.unicorn_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_SP,
+            uc.unicorn_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_A7,
+            uc.unicorn_const.UC_ARCH_RISCV: uc.riscv_const.UC_RISCV_REG_SP,
+            uc.unicorn_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_R15,
+            uc.unicorn_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_SP,
         }[self._emu.uc_arch]
     
     @property

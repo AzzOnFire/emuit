@@ -9,20 +9,12 @@ import unicorn as uc
 
 
 class EmuArch(ABC):
-    def __init__(self, emu: EmuIt, architecture: int, bitness: int):
+    def __init__(self, emu: EmuIt, uc_architecture: int, uc_mode: int):
         self._emu: EmuIt = emu
         self._regs: EmuRegs = EmuRegs(emu)
         self._bitness = bitness
 
-        mode = {
-            16: uc.UC_MODE_16,
-            32: uc.UC_MODE_32, 
-            64: uc.UC_MODE_64,
-        }.get(bitness)
-        if mode is None:
-            raise ValueError('Bitness value must be 16, 32 or 64')
-
-        self._engine = uc.Uc(architecture, mode)
+        self._engine = uc.Uc(uc_architecture, uc_mode)
 
     @property
     def bytesize(self) -> int:
