@@ -39,12 +39,12 @@ class EmuItPlugin(idaapi.plugin_t):
         print(' ' * 52, '\n', '=' * 52)
 
     def init(self):
-        try:
-            self.emu = EmuItIda()
-        except Exception as e:
-            print('EmuIt: an error occurred during initialization:', str(e))
-            print('EmuIt: try to rebase program and reopen IDB')
-            return idaapi.PLUGIN_SKIP
+        #try:
+        self.emu = EmuItIda()
+        #except Exception as e:
+        #    print('EmuIt: an error occurred during initialization:', str(e))
+        #    print('EmuIt: try to rebase program and reopen IDB')
+        #    return idaapi.PLUGIN_SKIP
 
         self.reset_every_run = True
         self.beautify = False

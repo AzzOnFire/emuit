@@ -1,8 +1,8 @@
-from .base import EmuArchBase
+from .base import EmuArch
 from .x86 import EmuArchX86
 
 
 __ALL__ = [
-    EmuArchBase,
+    EmuArch,
     EmuArchX86,
 ]

@@ -1,8 +1,10 @@
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from .base import EmuArch
 from .regs import EmuRegs
-from emuit import EmuIt
+
+if TYPE_CHECKING:
+    from emuit import EmuIt
 
 import unicorn as uc
 
@@ -11,11 +13,11 @@ class EmuArchX86(EmuArch):
     STACK_BASE = 0x200000
     STACK_SIZE = 0x150000
 
-    def __init__(self, emu: EmuIt, uc_mode: int):
+    def __init__(self, emu: "EmuIt", uc_mode: int):
         super().__init__(
             emu,
-            uc_architecture=uc.unicorn_const.UC_ARCH_X86
-            uc_mode=uc_mode
+            uc_architecture=uc.unicorn_const.UC_ARCH_X86,
+            uc_mode=uc_mode,
         )
 
     def stdcall(self, start_ea: int, end_ea: int, *stack_args):
@@ -42,19 +44,19 @@ class EmuArchX86(EmuArch):
         return self.stdcall(start_ea, end_ea, *stack_args)
 
     def reset(self):
-        for start, _ in self.mapping:
+        for start, _ in self._emu.mem.mapping:
             self._emu.mem.unmap(start)
         
-        try:
-            self._init_stack()
-        except Exception as e:
-            print('Unable to allocate stack')
-            pass
+        # try:
+        self._init_stack()
+        #except Exception as e:
+        #    print('Unable to allocate stack')
+        #    pass
 
     def _init_stack(self):
         base, size = self.STACK_BASE, self.STACK_SIZE
-        if not self.query(base):
+        if not self._emu.mem.query(base):
             self._emu.mem.map(base, size)
 
         self.regs.arch_sp = base + (size // 2) & ~0xFF
-        self['*BP'] = base + (3 * size // 4) & ~0xFF
+        self.regs['*BP'] = base + (3 * size // 4) & ~0xFF

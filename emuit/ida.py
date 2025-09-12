@@ -34,6 +34,9 @@ class EmuItIda(EmuIt):
         super().__init__(uc_architecture, uc_mode)
         self.reset()
 
+    def reset(self):
+        return self.arch.reset()
+
     def smartcall(self, func_call_ea: int, force: bool = True):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:

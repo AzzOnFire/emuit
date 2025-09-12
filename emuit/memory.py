@@ -68,7 +68,7 @@ class EmuMemory(object):
         return self._engine.mem_write(int(address), data)
 
     def read(self, address: Union[str, int], size: int) -> bytes:
-        return bytes(self.engine.mem_read(address, size))
+        return bytes(self._engine.mem_read(address, size))
 
     def find_free_space(self, size):
         if not self.mapping:

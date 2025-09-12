@@ -1,28 +1,48 @@
 from abc import ABC, abstractmethod
 from collections import Counter
-from typing import Union, Optional, Tuple
+from typing import TYPE_CHECKING, Union, Optional, Tuple
 
 from .regs import EmuRegs
-from emuit import EmuIt
+if TYPE_CHECKING:
+    from emuit import EmuIt
 
 import unicorn as uc
 
 
 class EmuArch(ABC):
-    def __init__(self, emu: EmuIt, uc_architecture: int, uc_mode: int):
-        self._emu: EmuIt = emu
-        self._regs: EmuRegs = EmuRegs(emu)
-        self._bitness = bitness
-
+    def __init__(self, emu: "EmuIt", uc_architecture: int, uc_mode: int):
+        self._emu: "EmuIt" = emu
+        self._uc_mode = uc_mode
+        self._uc_architecture = uc_architecture
         self._engine = uc.Uc(uc_architecture, uc_mode)
+        self._regs: EmuRegs = EmuRegs(self)
+
+    @property
+    def uc_architecture(self):
+        return self._uc_architecture
+
+    @property
+    def uc_mode(self):
+        return self._uc_mode
+
+    @property
+    def engine(self) -> uc.Uc:
+        return self._engine
 
     @property
     def bytesize(self) -> int:
-        return bitness // 8
+        return self.bitness // 8
 
     @property
     def bitness(self) -> int:
-        return self._bitness
+        if self._uc_mode & uc.unicorn_const.UC_MODE_64:
+            return 64
+        if self._uc_mode & uc.unicorn_const.UC_MODE_32:
+            return 32
+        if self._uc_mode & uc.unicorn_const.UC_MODE_16:
+            return 16
+        
+        raise ValueError('Invalid bitness specified in unicorn mode')
 
     @property
     def regs(self) -> EmuRegs:

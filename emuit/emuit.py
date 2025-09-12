@@ -2,10 +2,7 @@ from abc import abstractmethod
 from collections import Counter
 from typing import TYPE_CHECKING, Union, Optional, Tuple
 
-# See https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
-if TYPE_CHECKING:
-    from .arch import EmuArchBase, EmuArchX86
-
+from .arch import EmuArch, EmuArchX86
 from .memory import EmuMemory
 from .result import Result
 
@@ -14,15 +11,14 @@ import unicorn as uc
 
 class EmuIt(object):
     def __init__(self, uc_architecture: int, uc_mode: int):
-        self._arch: EmuArchBase = None
+        self._arch: EmuArch = None
         
         if uc_architecture == uc.unicorn_const.UC_ARCH_X86:
             self._arch = EmuArchX86(self, uc_mode)
         else:
-            self._arch = EmuArchBase(self, uc_architecture, uc_mode)
+            self._arch = EmuArch(self, uc_architecture, uc_mode)
 
-        self._engine = self._arch.engine
-        self._mem = EmuMemory(self._engine, ptr_size=self._arch.bytesize)
+        self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.bytesize)
 
         self.reset()
     
@@ -31,7 +27,7 @@ class EmuIt(object):
         return self._mem
 
     @property
-    def arch(self) -> EmuArchBase:
+    def arch(self) -> EmuArch:
         return self._arch
 
     def reset(self):
@@ -67,20 +63,20 @@ class EmuIt(object):
 
     def run(self, start_ea: int, end_ea: int) -> Result:
         user_data = set()
-        self.engine.hook_add(uc.UC_HOOK_MEM_WRITE,
+        self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE,
                          self._hook_mem_write,
                          user_data)
-        self.engine.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
+        self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
                          self._hook_mem_invalid_write,
                          user_data)
-        self.engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, 
+        self.arch.engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, 
                          self._hook_mem_fetch_unmapped)
-        self.engine.hook_add(uc.UC_HOOK_CODE,
+        self.arch.engine.hook_add(uc.UC_HOOK_CODE,
                         self._hook_code,
                         aux1=uc.x86_const.UC_X86_INS_CALL)
 
         try:
-            self.engine.emu_start(start_ea, end_ea)
+            self.arch.engine.emu_start(start_ea, end_ea)
         except uc.UcError as e:
             print('EmuIt Error:', e)
 
