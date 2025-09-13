@@ -1,5 +1,8 @@
 import idaapi
 import ida_ida
+import idc
+import ida_hexrays
+import ida_funcs
 
 import unicorn as uc
 
@@ -71,3 +74,73 @@ class IdaUcUtils(object):
             arch = uc.unicorn_const.UC_ARCH_M68K
 
         return arch, mode
+
+
+class IdaCallSelection:
+    @classmethod
+    def get_selected_call(cls):
+        widget_type = ida_kernwin.get_widget_type(ida_kernwin.get_current_viewer())
+        if widget_type == ida_kernwin.BWN_DISASM:
+            print("Current view: Disassembly")
+            return cls.get_selected_call_disassembly()
+        elif widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            print("Current view: Pseudocode")
+            return cls.get_selected_call_pseudocode()
+        else:
+            print("Current view: Other")
+
+    @staticmethod
+    def get_selected_call_disassembly():
+        ea = idc.get_screen_ea()
+        print(f"Selected address in disassembly: 0x{ea:x}")
+
+        mnemonic = idc.print_insn_mnem(ea)
+        if mnemonic.lower() != "call":
+            print(f"Instruction at 0x{ea:x} is not a call: {mnemonic}")
+        
+        return ea
+            
+    @staticmethod
+    def get_selected_call_pseudocode():
+        ea = idc.get_screen_ea()
+        func = idaapi.get_func(ea)
+        if not func:
+            print("No function at cursor")
+            return None
+
+        cfunc = ida_hexrays.decompile(func)
+        if not cfunc:
+            print("Failed to decompile function")
+            return None
+
+        def find_call_node(ctree_item):
+            if ctree_item is None:
+                return None
+
+            if ctree_item.op == ida_hexrays.cot_call and ctree_item.ea == ea:
+                return ctree_item
+            if ctree_item.is_expr():
+                if hasattr(ctree_item, 'x') and ctree_item.x:
+                    found = find_call_node(ctree_item.x)
+                    if found:
+                        return found
+                if hasattr(ctree_item, 'a') and ctree_item.a:
+                    for arg in ctree_item.a:
+                        found = find_call_node(arg)
+                        if found:
+                            return found
+            if ctree_item.op == ida_hexrays.cit_block:
+                for stmt in ctree_item.cblock:
+                    found = find_call_node(stmt)
+                    if found:
+                        return found
+            if ctree_item.op == ida_hexrays.cit_expr:
+                return find_call_node(ctree_item.cexpr)
+            return None
+
+        call_node = find_call_node(cfunc.body)
+        if not call_node:
+            print("No call node found at cursor")
+            return None
+
+        return call_node.ea

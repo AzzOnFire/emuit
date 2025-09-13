@@ -1,6 +1,6 @@
 import sys
 
-from emuit import EmuItIda
+from emuit import EmuItIda, IdaCallSelection
 
 import idaapi
 import ida_kernwin
@@ -133,6 +133,10 @@ class EmuItPlugin(idaapi.plugin_t):
         for offset, data in results.items():
             print(hex(offset), data)
         print('EmuIt: finish')
+
+    def action_emulate_call(self):
+        call_ea = IdaCallSelection.get_selection()
+        self.emu.smartcall(call_ea)
 
     def action_reset_handler(self):
         self.emu.reset()
