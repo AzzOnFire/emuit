@@ -33,19 +33,6 @@ class EmuIt(object):
     def reset(self):
         pass
 
-    def parse_argument(self, value: Union[int, str, bytes]):
-        if isinstance(value, int):
-            max_length = self.bitsize
-            if value.bit_length() > max_length:
-                raise ValueError(f'Value {value} is out of {max_length} bits')
-
-            return value
-
-        if isinstance(value, str):
-            return value.encode('ascii')
-
-        return value
-
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         user_data.update([address + offset for offset in range(0, size)])
 
@@ -91,5 +78,5 @@ class EmuIt(object):
                 current_buffer_ea = ea
             chains[current_buffer_ea] += 1
 
-        data = {ea: self[ea:ea + size] for ea, size in chains.items()}
+        data = {ea: self.mem[ea:ea + size] for ea, size in chains.items()}
         return Result(data)

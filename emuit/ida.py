@@ -81,7 +81,7 @@ class EmuItIda(EmuIt):
         try:
             size = seg.end_ea - seg.start_ea
             self.mem.map(seg.start_ea, size)
-            self[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
+            self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
         except Exception as e:
             print(e)
             return False

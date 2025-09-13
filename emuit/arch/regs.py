@@ -66,8 +66,8 @@ class EmuRegs():
         return {
             # uc.arm_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_SP,
             # uc.arm64_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_SP,
-            uc.mips_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_FP,
-            uc.x86_const.UC_ARCH_X86: (
+            uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_FP,
+            uc.unicorn_const.UC_ARCH_X86: (
                 uc.x86_const.UC_X86_REG_RBP if self._arch.uc_mode == uc.x86_const.UC_MODE_64 else (
                 uc.x86_const.UC_X86_REG_EBP if self._arch.uc_mode == uc.x86_const.UC_MODE_32 else 
                 uc.x86_const.UC_X86_REG_BP)
@@ -82,14 +82,14 @@ class EmuRegs():
     
     def _reg_id_by_name(self, register: str):
         # bitness-neutral access for x86
-        if self._arch.uc_architecture == uc.x86_const.UC_ARCH_X86 and register.startswith('*'):
-            register = 'R' if self.bitsize == 64 else 'E' + register[1:]
+        if self._arch.uc_architecture == uc.unicorn_const.UC_ARCH_X86 and register.startswith('*'):
+            register = ('R' if self._arch.bitness == 64 else ('E' if self._arch.bitness == 32 else '')) + register[1:]
         # workaround for PPC arch
-        elif self._arch.uc_architecture == uc.x86_const.UC_ARCH_PPC and register.startswith('R'):
+        elif self._arch.uc_architecture == uc.unicorn_const.UC_ARCH_PPC and register.startswith('R'):
             register = register[1:]
 
         arch = self.arch_mapping[self._arch.uc_architecture]
-        module = getattr(uc, f'{arch.lower}_const')
+        module = getattr(uc, f'{arch.lower()}_const')
         return getattr(module, f'UC_{arch.upper()}_REG_{register.upper()}')
 
     @property
@@ -113,13 +113,15 @@ class EmuRegs():
             destination: Union[str, int],
             value: int):
 
-        value = self.parse_argument(value)
+        if value.bit_count() > self._arch.bitness:
+            raise OverflowError()
+
         reg_id = self._reg_id_by_name(destination)
         return self._arch.engine.reg_write(reg_id, value)
 
     def __getitem__(
             self,
-            source: str):
+            source: str) -> int:
 
         reg_id = self._reg_id_by_name(source)
         return self._arch.engine.reg_read(reg_id)
