@@ -61,3 +61,7 @@ class EmuArch(ABC):
     @staticmethod
     def _resolve_location(location: Union[int, str]):
         return location
+
+    def reset(self):
+        for start, _ in self._emu.mem.mapping:
+            self._emu.mem.unmap(start)

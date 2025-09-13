@@ -19,8 +19,6 @@ class EmuIt(object):
             self._arch = EmuArch(self, uc_architecture, uc_mode)
 
         self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.bytesize)
-
-        self.reset()
     
     @property
     def mem(self) -> EmuMemory:

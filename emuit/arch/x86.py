@@ -47,8 +47,7 @@ class EmuArchX86(EmuArch):
         return self.stdcall(start_ea, end_ea, *stack_args)
 
     def reset(self):
-        for start, _ in self._emu.mem.mapping:
-            self._emu.mem.unmap(start)
+        super().reset()
         
         # try:
         self._init_stack()
