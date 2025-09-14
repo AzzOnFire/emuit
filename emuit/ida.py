@@ -50,7 +50,7 @@ class EmuItIda(EmuIt):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
         
         if not idaapi.apply_callee_tinfo(func_call_ea, tinfo):
-            raise ValueError(f"Failed to apply prototype at 0x{ea:0X}")
+            raise ValueError(f"Failed to apply prototype at 0x{func_call_ea:0X}")
         
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
