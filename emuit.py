@@ -93,7 +93,7 @@ class EmuItPlugin(idaapi.plugin_t):
         action_call = idaapi.action_desc_t(
             ACTION_CALL,
             'Emulate selected function',
-            action_handler(self.action_toggle_beautify_handler),
+            action_handler(self.action_emulate_call),
             None,
             'Emulate selected function in pseudocode/disassembly view'
         )
@@ -146,7 +146,7 @@ class EmuItPlugin(idaapi.plugin_t):
         print('EmuIt: finish')
 
     def action_emulate_call(self):
-        call_ea = IdaCallSelection.get_selection()
+        call_ea = IdaCallSelection.get_selected_call()
         self.emu.smartcall(call_ea)
 
     def action_reset_handler(self):
@@ -186,6 +186,7 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_SKIP_API_CALLS, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_BEAUTIFY, f'{tree}/')
+        attach(widget, popup, ACTION_CALL, f'{tree}/')
 
         return 0
 

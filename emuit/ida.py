@@ -51,6 +51,7 @@ class EmuItIda(EmuIt):
                 raise ValueError(f"Failed to apply prototype at 0x{ea:0X}")
             
             idc.plan_and_wait(ea, ea + 1)
+            # FIXME: didn't wait actually...
         elif func.regargqty != 0:
             raise AttributeError(f'Please manually edit/apply function 0x{ea:0X} '
                                     f'prototype or provide "force" flag')
