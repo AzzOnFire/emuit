@@ -20,9 +20,6 @@ class EmuArchX86(EmuArch):
 
     def stdcall(self, start_ea: int, end_ea: int, *stack_args):
         for arg in reversed(stack_args):
-            if arg.bit_count() > self.bitness:
-                raise OverflowError()
-
             self.stack_push(arg)
 
         self.stack_push(0)    # dummy return address

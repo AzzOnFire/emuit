@@ -49,8 +49,10 @@ class EmuArch(ABC):
         return self._regs
 
     def stack_push(self, value: Union[int, str, bytes]):
+        if isinstance(arg, int) and arg.bit_count() > self.bitness:
+            raise OverflowError()
+
         self.regs.arch_sp -= self.bytesize
-        print(hex(self.regs.arch_sp), hex(self.regs['*SP']))
         self._emu.mem[self.regs.arch_sp] = value
 
     def stack_pop(self):
@@ -58,7 +60,3 @@ class EmuArch(ABC):
         data = self._emu.mem[sp:sp + self.bytesize]
         self.regs.arch_sp += self.bytesize
         return data
-    
-    @staticmethod
-    def _resolve_location(location: Union[int, str]):
-        return location

@@ -52,7 +52,7 @@ class EmuItPlugin(idaapi.plugin_t):
 
         action_run = idaapi.action_desc_t(
             ACTION_RUN,
-            'EmuIt run',
+            'Run',
             action_handler(self.action_run_handler),
             PLUGIN_HOTKEY,
             'Run EmuIt on selection'
@@ -93,7 +93,7 @@ class EmuItPlugin(idaapi.plugin_t):
         action_call = idaapi.action_desc_t(
             ACTION_CALL,
             'Emulate selected function',
-            action_handler(self.action_emulate_call),
+            action_handler(self.action_emulate_call_handler),
             None,
             'Emulate selected function in pseudocode/disassembly view'
         )
@@ -145,8 +145,12 @@ class EmuItPlugin(idaapi.plugin_t):
             print(hex(offset), data)
         print('EmuIt: finish')
 
-    def action_emulate_call(self):
+    def action_emulate_call_handler(self):
         call_ea = IdaCallSelection.get_selected_call()
+        if not call_ea:
+            print('EmuIt: no function selected')
+            return
+
         self.emu.smartcall(call_ea)
 
     def action_reset_handler(self):
@@ -178,10 +182,10 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         if (idaapi.get_widget_type(widget) not in {idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE}):
             return 0
 
-        tree = PLUGIN_NAME + " settings"
+        tree = PLUGIN_NAME
         attach = idaapi.attach_action_to_popup
 
-        attach(widget, popup, ACTION_RUN, tree, idaapi.SETMENU_APP)
+        attach(widget, popup, ACTION_RUN, f'{tree}/')
         attach(widget, popup, ACTION_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_SKIP_API_CALLS, f'{tree}/')
