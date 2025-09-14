@@ -13,8 +13,9 @@ import idautils
 import ida_idp
 import ida_funcs
 import ida_name
+import ida_hexrays
+import ida_kernwin
 import idc
-
 
 
 class EmuItIda(EmuIt):
@@ -42,20 +43,15 @@ class EmuItIda(EmuIt):
         func = ida_funcs.get_func(func_ea)
         ea = func.start_ea
 
-        if force:
-            tinfo = idaapi.tinfo_t()
+        tinfo = idaapi.tinfo_t()
+        if not idaapi.get_tinfo(tinfo, ea):
+            ida_hexrays.decompile(ea)
             if not idaapi.get_tinfo(tinfo, ea):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
-            
-            if not idaapi.apply_tinfo(ea, tinfo, idaapi.TINFO_DEFINITE):
-                raise ValueError(f"Failed to apply prototype at 0x{ea:0X}")
-            
-            idc.plan_and_wait(ea, ea + 1)
-            # FIXME: didn't wait actually...
-        elif func.regargqty != 0:
-            raise AttributeError(f'Please manually edit/apply function 0x{ea:0X} '
-                                    f'prototype or provide "force" flag')
-
+        
+        if not idaapi.apply_callee_tinfo(func_call_ea, tinfo):
+            raise ValueError(f"Failed to apply prototype at 0x{ea:0X}")
+        
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
             if length == 0:

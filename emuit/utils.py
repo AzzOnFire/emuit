@@ -3,7 +3,6 @@ import ida_ida
 import idc
 import ida_hexrays
 import ida_kernwin
-import ida_funcs
 
 import unicorn as uc
 
