@@ -13,6 +13,11 @@ class EmuMemory(object):
     def map_anywhere(self, size: int) -> int:
         return self.map(None, size)
 
+    def map_buffer(self, buffer: bytes) -> int:
+        ea = self.map(None, len(buffer))
+        self.write(ea, buffer)
+        return ea
+
     def map(self, address: int = None, size: int = 0x100) -> int:
         size = self.__align_high(size)
         if address is None:

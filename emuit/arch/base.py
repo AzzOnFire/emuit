@@ -50,18 +50,15 @@ class EmuArch(ABC):
 
     def stack_push(self, value: Union[int, str, bytes]):
         self.regs.arch_sp -= self.bytesize
+        print(hex(self.regs.arch_sp), hex(self.regs['*SP']))
         self._emu.mem[self.regs.arch_sp] = value
 
     def stack_pop(self):
         sp = self.regs.arch_sp
-        data = self[sp:sp + self.bytesize]
+        data = self._emu.mem[sp:sp + self.bytesize]
         self.regs.arch_sp += self.bytesize
         return data
     
     @staticmethod
     def _resolve_location(location: Union[int, str]):
         return location
-
-    def reset(self):
-        for start, _ in self._emu.mem.mapping:
-            self._emu.mem.unmap(start)

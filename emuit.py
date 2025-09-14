@@ -20,6 +20,7 @@ ACTION_RESET = 'EmuIt:reset'
 ACTION_TOGGLE_RESET = 'EmuIt:toggle_reset'
 ACTION_TOGGLE_SKIP_API_CALLS = 'EmuIt:toggle_skip_api_calls'
 ACTION_TOGGLE_BEAUTIFY = 'EmuIt:toggle_beutify'
+ACTION_CALL = 'EmuIt:call'
 
 
 class EmuItPlugin(idaapi.plugin_t):
@@ -89,6 +90,14 @@ class EmuItPlugin(idaapi.plugin_t):
             'Beatify output using metrics and ASCII/Unicode encoding'
         )
 
+        action_call = idaapi.action_desc_t(
+            ACTION_CALL,
+            'Emulate selected function',
+            action_handler(self.action_toggle_beautify_handler),
+            None,
+            'Emulate selected function in pseudocode/disassembly view'
+        )
+
         idaapi.register_action(action_run)
         idaapi.register_action(action_reset)
 
@@ -104,6 +113,8 @@ class EmuItPlugin(idaapi.plugin_t):
         idaapi.register_action(action_toggle_beutify)
         idaapi.update_action_checkable(ACTION_TOGGLE_BEAUTIFY, True)
         idaapi.update_action_checked(ACTION_TOGGLE_BEAUTIFY, self.beautify)
+
+        idaapi.register_action(action_call)
 
         self.hooks = EmuItUIHooks()
         self.hooks.hook()

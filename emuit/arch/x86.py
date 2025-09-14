@@ -10,8 +10,6 @@ import unicorn as uc
 
 
 class EmuArchX86(EmuArch):
-    STACK_BASE = 0x200000
-    STACK_SIZE = 0x150000
 
     def __init__(self, emu: "EmuIt", uc_mode: int):
         super().__init__(
@@ -45,20 +43,3 @@ class EmuArchX86(EmuArch):
         if r9 is not None: self.regs['R9'] = r9
 
         return self.stdcall(start_ea, end_ea, *stack_args)
-
-    def reset(self):
-        super().reset()
-        
-        # try:
-        self._init_stack()
-        #except Exception as e:
-        #    print('Unable to allocate stack')
-        #    pass
-
-    def _init_stack(self):
-        base, size = self.STACK_BASE, self.STACK_SIZE
-        if not self._emu.mem.query(base):
-            self._emu.mem.map(base, size)
-
-        self.regs.arch_sp = base + (size // 2) & ~0xFF
-        self.regs['*BP'] = base + (3 * size // 4) & ~0xFF

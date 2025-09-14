@@ -1,49 +1,49 @@
-from emuit import EmuItX86_64
+from emuit import EmuIt
 
 import pytest
 
 
 @pytest.fixture
-def emuit_x64() -> EmuItX86_64:
-    return EmuItX86_64(bitness=64)
+def emuit_x8664() -> EmuIt:
+    return EmuIt.create(architecture='x86', bitness=64)
 
 
 @pytest.fixture
-def emuit_x86() -> EmuItX86_64:
-    return EmuItX86_64(bitness=32)
+def emuit_x8632() -> EmuIt:
+    return EmuIt.create(architecture='x86', bitness=32)
 
 
-def test_stackstring(emuit_x64: EmuItX86_64):
+def test_stackstring(emuit_x8664: EmuIt):
     ea = 0x400000
+    emuit_x8664.mem.map(ea, 0x1000)
     code = bytes.fromhex(
         "C7 00 5C 00 2A 00"         # mov dword ptr [rax], 2A005Ch
         "C7 40 04 2E 00 65 00"      # mov dword ptr [rax+4], 65002Eh
         "C7 40 08 78 00 65 00"      # mov dword ptr [rax+8], 650078h
     )
 
-    emuit_x64[ea] = code
+    emuit_x8664.mem[ea] = code
 
-    res = emuit_x64.run(ea, ea + len(code))
+    res = emuit_x8664.run(ea, ea + len(code))
     print(res.pretty())
     assert any('\\*.exe' in x for x in res.pretty().values())
 
 
-def test_simple(emuit_x64: EmuItX86_64):
+def test_simple(emuit_x8664: EmuIt):
     code = bytes.fromhex(
         "33 C0"     # xor eax, eax
     )
 
-    buffer_ea = emuit_x64.malloc(0x100)
-    emuit_x64[buffer_ea] = code
+    buffer_ea = emuit_x8664.mem.map_buffer(code)
 
-    emuit_x64['EAX'] = 7
-    assert emuit_x64['EAX'] == 7
-    emuit_x64.run(buffer_ea, buffer_ea + 2)
-    assert emuit_x64['EAX'] == 0
+    emuit_x8664.arch.regs['EAX'] = 7
+    assert emuit_x8664.arch.regs['EAX'] == 7
+    emuit_x8664.run(buffer_ea, buffer_ea + 2)
+    assert emuit_x8664.arch.regs['EAX'] == 0
 
 
 # @pytest.mark.skip(reason="no way of currently testing this")
-def test_decryption_stdcall(emuit_x86: EmuItX86_64):
+def test_decryption_stdcall(emuit_x8632: EmuIt):
 
     # .text:00011524  fn_Decryption proc near
     #                 arg_0         = dword ptr  8      key
@@ -75,17 +75,17 @@ def test_decryption_stdcall(emuit_x86: EmuItX86_64):
         "5D"                        # pop     ebp
         "C2 0C 00"                  # retn    0Ch
     )
-
-    data = bytes.fromhex(
+    
+    encrypted = bytes.fromhex(
         '58 B0 5E FC A2 F9 C9 BA E8 EE 47 AA 07 90 E5 99'
         '87 F2 C8 B0 7E D9 A1 C9 E5 8D B8 D4 00 00'
     )
-    data_wlen = 14
+    data = emuit_x8632.mem.map_buffer(encrypted)
+    data_wlen = len(encrypted) // 2 - 1
 
-    start_ea, end_ea = 0x11524, 0x1155D
-    _ = emuit_x86.malloc_ex(start_ea, end_ea - start_ea)
-    emuit_x86[start_ea] = code
+    code_ea = emuit_x8632.mem.map_buffer(code)
+    emuit_x8632.mem[code_ea] = code
 
     args = (0x1F2967E, data, data_wlen)
-    res = emuit_x86.stdcall(start_ea, end_ea, *args)
+    res = emuit_x8632.arch.stdcall(code_ea, code_ea + len(code), *args)
     assert any('DosDevices' in x for x in res.pretty().values())

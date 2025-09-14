@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections import Counter
-from typing import TYPE_CHECKING, Union, Optional, Tuple
+from typing import Union, Optional, Tuple, Literal
 
 from .arch import EmuArch, EmuArchX86
 from .memory import EmuMemory
@@ -13,13 +13,67 @@ class EmuIt(object):
     def __init__(self, uc_architecture: int, uc_mode: int):
         self._arch: EmuArch = None
         
-        if uc_architecture == uc.unicorn_const.UC_ARCH_X86:
-            self._arch = EmuArchX86(self, uc_mode)
+        self._uc_architecture = uc_architecture
+        self._uc_mode = uc_mode
+        self.reset()
+
+    def reset(self):        
+        if self._uc_architecture == uc.unicorn_const.UC_ARCH_X86:
+            self._arch = EmuArchX86(self, self._uc_mode)
         else:
-            self._arch = EmuArch(self, uc_architecture, uc_mode)
+            self._arch = EmuArch(self, self._uc_architecture, self._uc_mode)
 
         self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.bytesize)
-    
+
+        stack_size = 1 * 1024 * 1024    # 1 MB
+        stack_base = self._mem.map_anywhere(stack_size)
+        self._arch.regs.arch_sp = stack_base + (stack_size // 2) & ~0xFF
+
+    @classmethod
+    def create(
+        cls,
+        architecture: Literal['x86', 'arm', 'mips', 'ppc', 'riscv', 's390', 'tricore', 'sparc', 'm68k'],
+        bitness: Literal[16, 32, 64] = 64,
+        endian: Literal['little', 'big'] = 'little'
+    ):
+        uc_architecture = {
+            'x86': uc.unicorn_const.UC_ARCH_X86,
+            'arm': (
+                uc.unicorn_const.UC_ARCH_ARM if bitness == 32 
+                else (uc.unicorn_const.UC_ARCH_ARM64 if bitness == 64
+                else None
+            )),
+            'mips': uc.unicorn_const.UC_ARCH_MIPS,
+            'ppc': uc.unicorn_const.UC_ARCH_PPC,
+            'riscv': uc.unicorn_const.UC_ARCH_RISCV,
+            's390': uc.unicorn_const.UC_ARCH_S390X, 
+            'tricore': uc.unicorn_const.UC_ARCH_TRICORE,
+            'sparc': uc.unicorn_const.UC_ARCH_SPARC,
+            '68k': uc.unicorn_const.UC_ARCH_M68K,
+        }.get(architecture)
+
+        if uc_architecture is None:
+            raise ValueError('Unsupported architecture')
+
+        uc_mode = 0
+        if bitness == 16:
+            uc_mode |= uc.unicorn_const.UC_MODE_16
+        elif bitness == 32:
+            uc_mode |= uc.unicorn_const.UC_MODE_32
+        elif bitness == 64:
+            uc_mode |= uc.unicorn_const.UC_MODE_64
+        else:
+            raise ValueError('Unsupported bitness')
+
+        if endian == 'little':
+            uc_mode |= uc.unicorn_const.UC_MODE_LITTLE_ENDIAN 
+        elif endian == 'big':
+            uc_mode |= uc.unicorn_const.UC_MODE_BIG_ENDIAN
+        else:
+            raise ValueError('Unsupported endian')
+
+        return cls(uc_architecture=uc_architecture, uc_mode=uc_mode)
+
     @property
     def mem(self) -> EmuMemory:
         return self._mem
@@ -27,9 +81,6 @@ class EmuIt(object):
     @property
     def arch(self) -> EmuArch:
         return self._arch
-
-    def reset(self):
-        pass
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         user_data.update([address + offset for offset in range(0, size)])
