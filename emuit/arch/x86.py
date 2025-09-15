@@ -1,7 +1,6 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from .base import EmuArch
-from .regs import EmuRegs
 
 if TYPE_CHECKING:
     from emuit import EmuIt

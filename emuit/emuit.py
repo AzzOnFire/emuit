@@ -1,6 +1,5 @@
-from abc import abstractmethod
 from collections import Counter
-from typing import Union, Optional, Tuple, Literal
+from typing import Literal
 
 from .arch import EmuArch, EmuArchX86
 from .memory import EmuMemory
@@ -11,8 +10,6 @@ import unicorn as uc
 
 class EmuIt(object):
     def __init__(self, uc_architecture: int, uc_mode: int):
-        self._arch: EmuArch = None
-        
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
         self.reset()
@@ -23,7 +20,7 @@ class EmuIt(object):
         else:
             self._arch = EmuArch(self, self._uc_architecture, self._uc_mode)
 
-        self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.bytesize)
+        self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.ptr_size)
 
         stack_size = 1 * 1024 * 1024    # 1 MB
         stack_base = self._mem.map_anywhere(stack_size)
@@ -75,11 +72,11 @@ class EmuIt(object):
         return cls(uc_architecture=uc_architecture, uc_mode=uc_mode)
 
     @property
-    def mem(self) -> EmuMemory:
+    def mem(self) -> "EmuMemory":
         return self._mem
 
     @property
-    def arch(self) -> EmuArch:
+    def arch(self) -> "EmuArch":
         return self._arch
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
@@ -98,7 +95,7 @@ class EmuIt(object):
         pass
 
     def run(self, start_ea: int, end_ea: int) -> Result:
-        user_data = set()
+        user_data: set[int] = set()
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE,
                          self._hook_mem_write,
                          user_data)

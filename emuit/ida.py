@@ -4,7 +4,6 @@ from .emuit import EmuIt
 from .utils import IdaUcUtils
 
 import idaapi
-import ida_ida
 import ida_segment
 import ida_bytes
 import ida_ua
@@ -14,7 +13,6 @@ import ida_idp
 import ida_funcs
 import ida_name
 import ida_hexrays
-import ida_kernwin
 import idc
 
 
@@ -121,7 +119,7 @@ class EmuItIda(EmuIt):
                 # TODO understand why argsize attribute
                 # do not working with api calls
                 if 'push' in arg_insn.get_canon_mnem():
-                    self.arch.regs.arch_sp += self.bytesize
+                    self.arch.regs.arch_sp += self.arch.ptr_size
 
             self.arch.regs.arch_pc += inslen
 

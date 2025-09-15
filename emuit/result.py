@@ -50,7 +50,7 @@ class Result(UserDict):
     @staticmethod
     def _printable_metric(data: bytes):
         printable = set(string.printable.encode())
-        metric = sum([1 if x in printable else -1 for x in data])
+        metric = sum([1.0 if x in printable else -1.0 for x in data])
         metric += sum([0.1 for x in data if x == 0x00])
 
         return (metric / len(data)) if metric > 0 else 0

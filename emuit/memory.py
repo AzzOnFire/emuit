@@ -1,11 +1,11 @@
-from typing import Union, Optional, Tuple
+from typing import Union
 
 import unicorn as uc
 
 
 class EmuMemory(object):
     def __init__(self, engine: uc.Uc, ptr_size: int = 4):
-        self.mapping = []
+        self.mapping: list[tuple[int, int]] = []
         self._ptr_size = ptr_size
         self._engine: uc.Uc = engine
         self._engine.ctl_get_mode()
@@ -18,7 +18,7 @@ class EmuMemory(object):
         self.write(ea, buffer)
         return ea
 
-    def map(self, address: int = None, size: int = 0x100) -> int:
+    def map(self, address: int | None = None, size: int = 0x100) -> int:
         size = self.__align_high(size)
         if address is None:
             address = self.find_free_space(size)            
@@ -43,7 +43,7 @@ class EmuMemory(object):
         self.mapping.insert(i, block)
         return address
 
-    def query(self, address: int) -> Optional[Tuple[int, int]]:
+    def query(self, address: int) -> tuple[int, int] | None:
         for _, (start, end) in enumerate(self.mapping):
             if start <= address <= end:
                 return (start, end)
@@ -108,9 +108,9 @@ class EmuMemory(object):
         return self.read(source, self._ptr_size)
 
     @staticmethod
-    def __align_low(value: int, border: int = 4096):
+    def __align_low(value: int, border: int = 4096) -> int:
         return (value // border) * border
     
     @staticmethod
-    def __align_high(value: int, border: int = 4096):
+    def __align_high(value: int, border: int = 4096) -> int:
         return (value // border + 1) * border

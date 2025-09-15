@@ -1,6 +1,4 @@
-from abc import ABC, abstractmethod
-from collections import Counter
-from typing import TYPE_CHECKING, Union, Optional, Tuple
+from typing import TYPE_CHECKING, Literal
 
 from .regs import EmuRegs
 if TYPE_CHECKING:
@@ -9,7 +7,7 @@ if TYPE_CHECKING:
 import unicorn as uc
 
 
-class EmuArch(ABC):
+class EmuArch(object):
     def __init__(self, emu: "EmuIt", uc_architecture: int, uc_mode: int):
         self._emu: "EmuIt" = emu
         self._uc_mode = uc_mode
@@ -26,11 +24,15 @@ class EmuArch(ABC):
         return self._uc_mode
 
     @property
+    def endian(self) -> Literal['little', 'big']:
+        return 'big' if self.uc_mode & uc.unicorn_const.UC_MODE_BIG_ENDIAN else 'little' 
+
+    @property
     def engine(self) -> uc.Uc:
         return self._engine
 
     @property
-    def bytesize(self) -> int:
+    def ptr_size(self) -> int:
         return self.bitness // 8
 
     @property
@@ -48,15 +50,14 @@ class EmuArch(ABC):
     def regs(self) -> EmuRegs:
         return self._regs
 
-    def stack_push(self, value: Union[int, str, bytes]):
-        if isinstance(arg, int) and arg.bit_count() > self.bitness:
+    def stack_push(self, value: int):
+        if value.bit_count() > self.bitness:
             raise OverflowError()
 
-        self.regs.arch_sp -= self.bytesize
+        self.regs.arch_sp -= self.ptr_size
         self._emu.mem[self.regs.arch_sp] = value
 
-    def stack_pop(self):
-        sp = self.regs.arch_sp
-        data = self._emu.mem[sp:sp + self.bytesize]
-        self.regs.arch_sp += self.bytesize
-        return data
+    def stack_pop(self) -> int:
+        data = self._emu.mem[self.regs.arch_sp:self.regs.arch_sp + self.ptr_size]
+        self.regs.arch_sp += self.ptr_size
+        return int.from_bytes(data, byteorder=self.endian)
