@@ -3,7 +3,7 @@ from statistics import mode
 
 
 class Buffer(bytes):
-    def __new__(cls, ea: int, data: bytes, write_addresses: list):
+    def __new__(cls, ea: int, data: bytes, write_addresses: list | None = None):
         instance = super().__new__(cls, data)
         instance._ea = ea
         instance._last_write_addresses = write_addresses
@@ -14,7 +14,10 @@ class Buffer(bytes):
         return self._ea
 
     @property
-    def write_instruction_ea(self) -> int:
+    def write_instruction_ea(self) -> int | None:
+        if self._last_write_addresses is None:
+            return None
+
         return mode(filter(None, self._last_write_addresses))
 
     def try_decode(self):

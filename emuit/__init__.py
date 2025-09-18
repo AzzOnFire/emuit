@@ -1,9 +1,9 @@
 from .emuit import EmuIt
-from .result import Result
+from .utils import Buffer
 
 __all__ = [
     EmuIt,
-    Result,
+    Buffer,
 ]
 
 try:

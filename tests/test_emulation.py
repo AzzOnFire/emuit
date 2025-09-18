@@ -24,9 +24,8 @@ def test_stackstring(emuit_x8664: EmuIt):
 
     emuit_x8664.mem[ea] = code
 
-    res = emuit_x8664.run(ea, ea + len(code))
-    print(res.pretty())
-    assert any('\\*.exe' in x for x in res.pretty().values())
+    results = emuit_x8664.run(ea, ea + len(code))
+    assert any('\\*.exe' in x.try_decode() for x in results)
 
 
 def test_simple(emuit_x8664: EmuIt):
@@ -87,5 +86,5 @@ def test_decryption_stdcall(emuit_x8632: EmuIt):
     emuit_x8632.mem[code_ea] = code
 
     args = (0x1F2967E, data, data_wlen)
-    res = emuit_x8632.arch.stdcall(code_ea, code_ea + len(code), *args)
-    assert any('DosDevices' in x for x in res.pretty().values())
+    results = emuit_x8632.arch.stdcall(code_ea, code_ea + len(code), *args)
+    assert any('DosDevices' in x.try_decode() for x in results)
