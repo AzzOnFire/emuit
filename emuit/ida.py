@@ -95,12 +95,18 @@ class EmuItIda(EmuIt):
         super()._hook_mem_write(uc, access, address, size, value, user_data)
 
     def _hook_code(self, uc, address, size, user_data):
-        flags = idaapi.GENDSM_REMOVE_TAGS
-        line = idaapi.generate_disasm_line(address, flags)
-        print(line)
+        super()._hook_code(uc, address, size, user_data)
 
         if self.skip_api_calls:
             self._skip_api_call(self.arch.regs.arch_pc)
+
+    def _hook_error(self, e):
+        super()._hook_error(e)
+
+        for insn_ea in self._insn_trace:
+            flags = idaapi.GENDSM_REMOVE_TAGS
+            line = idaapi.generate_disasm_line(insn_ea, flags)
+            print(hex(insn_ea), line)
 
     @staticmethod
     def _get_name_ea(value: Union[Any, str]):

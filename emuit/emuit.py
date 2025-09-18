@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, deque
 from typing import Literal
 
 import unicorn as uc
@@ -12,6 +12,7 @@ class EmuIt(object):
     def __init__(self, uc_architecture: int, uc_mode: int):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
+        self._insn_trace = deque(maxlen=10)
         self.reset()
 
     def reset(self):
@@ -98,8 +99,10 @@ class EmuIt(object):
         return False
 
     def _hook_code(self, uc, address, size, user_data):
-        # print(hex(address), size)
-        pass
+        self._insn_trace.append(address)
+
+    def _hook_error(self, e):
+        print('EmuIt Error:', e)
 
     def run(self, start_ea: int, end_ea: int) -> list[Buffer]:
         user_data: dict[int, int] = {}
@@ -120,7 +123,7 @@ class EmuIt(object):
         try:
             self.arch.engine.emu_start(start_ea, end_ea)
         except uc.UcError as e:
-            print('EmuIt Error:', e)
+            self._hook_error(e)
 
         return self._post_processing(user_data)
 

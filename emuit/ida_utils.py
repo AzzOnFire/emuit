@@ -149,8 +149,18 @@ class IdaCallSelection:
 
 
 class IdaComments(object):
-    @staticmethod
-    def add_pseudocode_comment(ea: int, text: str):
+    @classmethod
+    def add_comment(cls, ea: int, text: str):
+        cls.add_disassembly_comment(ea, text)
+        cls.add_pseudocode_comment(ea, text)
+        cls.refresh_current_viewer()
+
+    @classmethod
+    def add_disassembly_comment(cls, ea: int, text: str):
+        idc.set_cmt(ea, text, 0)
+
+    @classmethod
+    def add_pseudocode_comment(cls, ea: int, text: str):
         cfunc = idaapi.decompile(ea)
         if not cfunc:
             print("Failed to decompile function.")
@@ -162,3 +172,9 @@ class IdaComments(object):
 
         cfunc.set_user_cmt(tl, text)
         cfunc.save_user_cmts()
+
+    @staticmethod
+    def refresh_current_viewer():
+        viewer = ida_kernwin.get_current_viewer()
+        vdui = idaapi.get_widget_vdui(viewer)
+        vdui.refresh_view(True)

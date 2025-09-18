@@ -138,13 +138,13 @@ class EmuItPlugin(idaapi.plugin_t):
 
         print(f'EmuIt: running {start_ea:08X} - {end_ea:08X}')
         buffers = self.emu.run(start_ea, end_ea)
+
+        if self.beautify:
+            candidate = max(buffers, key=lambda x: x.metric_printable())
+            IdaComments.add_comment(candidate.write_instruction_ea, candidate.try_decode())
+
         for buffer in buffers:
-            print(hex(buffer.write_instruction_ea))
-            if self.beautify:
-                print(hex(buffer.ea), buffer.try_decode())
-                IdaComments.add_pseudocode_comment(buffer.write_instruction_ea, buffer.try_decode())
-            else:
-                print(hex(buffer.ea), buffer)
+            print(hex(buffer.write_instruction_ea), hex(buffer.ea), buffer)
 
         print('EmuIt: finish')
 

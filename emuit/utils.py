@@ -20,7 +20,7 @@ class Buffer(bytes):
     def try_decode(self):
         result = ''
 
-        if self.metric_is_unicode() > 0.65:
+        if self.metric_unicode() > 0.65:
             try:
                 result = self.decode('UTF-16-LE')
             except UnicodeDecodeError:
@@ -35,7 +35,7 @@ class Buffer(bytes):
 
         return result
 
-    def metric_is_unicode(self):
+    def metric_unicode(self):
         if len(self) < 2:
             return 0
 
@@ -46,7 +46,7 @@ class Buffer(bytes):
 
         return metric / (len(self) / 2)
      
-    def metric_is_printable(self) -> float:
+    def metric_printable(self) -> float:
         printable = set(string.printable.encode())
         metric = sum([1.0 if x in printable else -1.0 for x in self])
         metric += sum([0.1 for x in self if x == 0x00])
