@@ -87,6 +87,9 @@ class EmuIt(object):
         user_data.update([address + offset for offset in range(0, size)])
         return True
 
+    def _hook_mem_invalid_read(self, uc, access, address, size, value, user_data):
+        return True
+
     def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, data):
         return False
 
@@ -102,6 +105,8 @@ class EmuIt(object):
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
                          self._hook_mem_invalid_write,
                          user_data)
+        self.arch.engine.hook_add(uc.UC_HOOK_MEM_READ_UNMAPPED,
+                         self._hook_mem_invalid_read)
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, 
                          self._hook_mem_fetch_unmapped)
         self.arch.engine.hook_add(uc.UC_HOOK_CODE,

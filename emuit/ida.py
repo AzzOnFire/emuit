@@ -70,9 +70,10 @@ class EmuItIda(EmuIt):
             return False
 
         try:
-            size = seg.end_ea - seg.start_ea
-            self.mem.map(seg.start_ea, size)
-            self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
+            segment_size = seg.end_ea - seg.start_ea
+            # print('Try to map', hex(seg.start_ea), hex(segment_size))
+            self.mem.map(seg.start_ea, segment_size)
+            self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, segment_size)
         except Exception as e:
             print(e)
             return False
@@ -87,7 +88,14 @@ class EmuItIda(EmuIt):
 
         user_data.update([address + offset for offset in range(0, size)])
 
+    def _hook_mem_invalid_read(self, uc, access, address, size, value, data):
+        return self._hook_mem_fetch_unmapped(uc, access, address, size, value, data)
+
     def _hook_code(self, uc, address, size, user_data):
+        flags = idaapi.GENDSM_REMOVE_TAGS
+        line = idaapi.generate_disasm_line(address, flags)
+        print(line)
+
         if self.skip_api_calls:
             self._skip_api_call(self.arch.regs.arch_pc)
 

@@ -108,9 +108,9 @@ class EmuMemory(object):
         return self.read(source, self._ptr_size)
 
     @staticmethod
-    def __align_low(value: int, border: int = 4096) -> int:
-        return (value // border) * border
+    def __align_low(value: int, border: int = 0x1000) -> int:
+        return value & ~(border - 1)
     
     @staticmethod
-    def __align_high(value: int, border: int = 4096) -> int:
-        return (value // border + 1) * border
+    def __align_high(value: int, border: int = 0x1000) -> int:
+        return (value + border - 1) & ~(border - 1)
