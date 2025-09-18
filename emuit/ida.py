@@ -1,7 +1,7 @@
 from typing import Any, Union
 
 from .emuit import EmuIt
-from .utils import IdaUcUtils
+from .ida_utils import IdaUcUtils
 
 import idaapi
 import ida_segment
@@ -32,7 +32,7 @@ class EmuItIda(EmuIt):
         uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
         super().__init__(uc_architecture, uc_mode)
 
-    def smartcall(self, func_call_ea: int, force: bool = True):
+    def smartcall(self, func_call_ea: int):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:
             raise ValueError('Wrong call address (must point to existing function)')
@@ -46,10 +46,10 @@ class EmuItIda(EmuIt):
             ida_hexrays.decompile(ea)
             if not idaapi.get_tinfo(tinfo, ea):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
-        
+
         if not idaapi.apply_callee_tinfo(func_call_ea, tinfo):
             raise ValueError(f"Failed to apply prototype at 0x{func_call_ea:0X}")
-        
+
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
             if length == 0:
@@ -63,7 +63,7 @@ class EmuItIda(EmuIt):
         call_length = ida_ua.decode_insn(ida_ua.insn_t(), func_call_ea)
         return self.run(func_call_ea, func_call_ea + call_length)
 
-    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, data):
+    def _map_from_ida(self, address) -> bool:
         n = ida_segment.get_segm_num(address)
         seg = ida_segment.getnseg(n)
         if not seg:
@@ -80,16 +80,19 @@ class EmuItIda(EmuIt):
 
         return True
 
+    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
+        return self._map_from_ida(address)
+
+    def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
+        return self._map_from_ida(address)
+
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if not inslen or insn.itype in self.SKIP_WRITE_MEM_INSNS:
             return
 
-        user_data.update([address + offset for offset in range(0, size)])
-
-    def _hook_mem_invalid_read(self, uc, access, address, size, value, data):
-        return self._hook_mem_fetch_unmapped(uc, access, address, size, value, data)
+        super()._hook_mem_write(uc, access, address, size, value, user_data)
 
     def _hook_code(self, uc, address, size, user_data):
         flags = idaapi.GENDSM_REMOVE_TAGS

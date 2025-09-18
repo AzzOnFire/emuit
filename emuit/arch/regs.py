@@ -31,7 +31,7 @@ class EmuRegs():
             uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_PC,
             uc.unicorn_const.UC_ARCH_X86: (
                 uc.x86_const.UC_X86_REG_RIP if self._arch.uc_mode == uc.unicorn_const.UC_MODE_64 else (
-                uc.x86_const.UC_X86_REG_EIP if self._arch.uc_mode == uc.unicorn_const.UC_MODE_32 else 
+                uc.x86_const.UC_X86_REG_EIP if self._arch.uc_mode == uc.unicorn_const.UC_MODE_32 else
                 uc.x86_const.UC_X86_REG_IP)
             ),
             # uc.unicorn_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_PC,
@@ -41,7 +41,7 @@ class EmuRegs():
             uc.unicorn_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_PC,
             uc.unicorn_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_PC,
         }[self._arch.uc_architecture]
-    
+
     @property
     def _sp_name(self):
         return {

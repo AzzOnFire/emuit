@@ -39,9 +39,9 @@ class EmuMemory(object):
             if start <= address and (address + size) <= end:
                 raise ValueError(f'Can\'t map memory at 0x{address:0X}')
 
-        self._engine.mem_map(address, size)
-        self.mapping.insert(i, block)
-        return address
+            self._engine.mem_map(address, size)
+            self.mapping.insert(i, block)
+            return address
 
     def query(self, address: int) -> tuple[int, int] | None:
         for _, (start, end) in enumerate(self.mapping):
@@ -84,7 +84,7 @@ class EmuMemory(object):
         for i, (start, end) in enumerate(self.mapping):
             if start - self.__align_high(prev_end) > size:
                 return self.__align_high(prev_end)
-            
+ 
             prev_end = end
 
         # if still not found
@@ -110,7 +110,7 @@ class EmuMemory(object):
     @staticmethod
     def __align_low(value: int, border: int = 0x1000) -> int:
         return value & ~(border - 1)
-    
+
     @staticmethod
     def __align_high(value: int, border: int = 0x1000) -> int:
         return (value + border - 1) & ~(border - 1)

@@ -8,7 +8,7 @@ __all__ = [
 
 try:
     from .ida import EmuItIda
-    from .utils import IdaCallSelection
+    from .ida_utils import IdaCallSelection, IdaComments
     __all__.extend([
         EmuItIda,
         IdaCallSelection

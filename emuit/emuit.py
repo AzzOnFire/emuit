@@ -1,11 +1,11 @@
 from collections import Counter
 from typing import Literal
 
+import unicorn as uc
+
 from .arch import EmuArch, EmuArchX86
 from .memory import EmuMemory
-from .result import Result
-
-import unicorn as uc
+from .utils import Buffer
 
 
 class EmuIt(object):
@@ -14,7 +14,7 @@ class EmuIt(object):
         self._uc_mode = uc_mode
         self.reset()
 
-    def reset(self):        
+    def reset(self):
         if self._uc_architecture == uc.unicorn_const.UC_ARCH_X86:
             self._arch = EmuArchX86(self, self._uc_mode)
         else:
@@ -36,14 +36,14 @@ class EmuIt(object):
         uc_architecture = {
             'x86': uc.unicorn_const.UC_ARCH_X86,
             'arm': (
-                uc.unicorn_const.UC_ARCH_ARM if bitness == 32 
+                uc.unicorn_const.UC_ARCH_ARM if bitness == 32
                 else (uc.unicorn_const.UC_ARCH_ARM64 if bitness == 64
-                else None
-            )),
+                      else None
+                      )),
             'mips': uc.unicorn_const.UC_ARCH_MIPS,
             'ppc': uc.unicorn_const.UC_ARCH_PPC,
             'riscv': uc.unicorn_const.UC_ARCH_RISCV,
-            's390': uc.unicorn_const.UC_ARCH_S390X, 
+            's390': uc.unicorn_const.UC_ARCH_S390X,
             'tricore': uc.unicorn_const.UC_ARCH_TRICORE,
             'sparc': uc.unicorn_const.UC_ARCH_SPARC,
             '68k': uc.unicorn_const.UC_ARCH_M68K,
@@ -63,7 +63,7 @@ class EmuIt(object):
             raise ValueError('Unsupported bitness')
 
         if endian == 'little':
-            uc_mode |= uc.unicorn_const.UC_MODE_LITTLE_ENDIAN 
+            uc_mode |= uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
         elif endian == 'big':
             uc_mode |= uc.unicorn_const.UC_MODE_BIG_ENDIAN
         else:
@@ -80,38 +80,42 @@ class EmuIt(object):
         return self._arch
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
-        user_data.update([address + offset for offset in range(0, size)])
+        user_data.update({
+            address + offset: self.arch.regs.arch_pc
+            for offset in range(0, size)
+        })
 
-    def _hook_mem_invalid_write(self, uc, access, address, size, value, user_data):
-        self.mem.map(address, 64 * 1024)
-        user_data.update([address + offset for offset in range(0, size)])
+    def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
+        self.mem.map(address, 0x1000)
+        self._hook_mem_write(user_data, address, size)
+
         return True
 
-    def _hook_mem_invalid_read(self, uc, access, address, size, value, user_data):
+    def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
         return True
 
-    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, data):
+    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
         return False
 
     def _hook_code(self, uc, address, size, user_data):
         # print(hex(address), size)
         pass
 
-    def run(self, start_ea: int, end_ea: int) -> Result:
-        user_data: set[int] = set()
+    def run(self, start_ea: int, end_ea: int) -> list[Buffer]:
+        user_data: dict[int, int] = {}
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE,
-                         self._hook_mem_write,
-                         user_data)
+                                  self._hook_mem_write,
+                                  user_data)
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED,
-                         self._hook_mem_invalid_write,
-                         user_data)
+                                  self._hook_mem_write_unmapped,
+                                  user_data)
         self.arch.engine.hook_add(uc.UC_HOOK_MEM_READ_UNMAPPED,
-                         self._hook_mem_invalid_read)
-        self.arch.engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, 
-                         self._hook_mem_fetch_unmapped)
+                                  self._hook_mem_read_unmapped)
+        self.arch.engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED,
+                                  self._hook_mem_fetch_unmapped)
         self.arch.engine.hook_add(uc.UC_HOOK_CODE,
-                        self._hook_code,
-                        aux1=uc.x86_const.UC_X86_INS_CALL)
+                                  self._hook_code,
+                                  aux1=uc.x86_const.UC_X86_INS_CALL)
 
         try:
             self.arch.engine.emu_start(start_ea, end_ea)
@@ -120,8 +124,9 @@ class EmuIt(object):
 
         return self._post_processing(user_data)
 
-    def _post_processing(self, entries: set) -> Result:
-        addresses = sorted(entries)
+    def _post_processing(self, entries: dict[int, int]) -> list[Buffer]:
+        # chain contiguous memory addresses
+        addresses = sorted(entries.keys())
         chains = Counter()
 
         for i, ea in enumerate(addresses):
@@ -129,5 +134,11 @@ class EmuIt(object):
                 current_buffer_ea = ea
             chains[current_buffer_ea] += 1
 
-        data = {ea: self.mem[ea:ea + size] for ea, size in chains.items()}
-        return Result(data)
+        total = []
+        for start_ea, size in chains.items():
+            data = self.mem.read(start_ea, size)
+            write_addresses = [entries.get(ea) for ea in range(start_ea, start_ea + size)]
+            buffer = Buffer(ea=start_ea, data=data, write_addresses=list(filter(None, write_addresses)))
+            total.append(buffer)
+
+        return total

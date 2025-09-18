@@ -43,7 +43,7 @@ class EmuArch(object):
             return 32
         if self._uc_mode & uc.unicorn_const.UC_MODE_16:
             return 16
-        
+
         raise ValueError('Invalid bitness specified in unicorn mode')
 
     @property

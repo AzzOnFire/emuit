@@ -1,6 +1,6 @@
 import sys
 
-from emuit import EmuItIda, IdaCallSelection
+from emuit import EmuItIda, IdaCallSelection, IdaComments
 
 import idaapi
 import ida_kernwin
@@ -137,12 +137,15 @@ class EmuItPlugin(idaapi.plugin_t):
             self.emu.reset()
 
         print(f'EmuIt: running {start_ea:08X} - {end_ea:08X}')
-        results = self.emu.run(start_ea, end_ea)
-        if self.beautify:
-            results = results.pretty()
+        buffers = self.emu.run(start_ea, end_ea)
+        for buffer in buffers:
+            print(hex(buffer.write_instruction_ea))
+            if self.beautify:
+                print(hex(buffer.ea), buffer.try_decode())
+                IdaComments.add_pseudocode_comment(buffer.write_instruction_ea, buffer.try_decode())
+            else:
+                print(hex(buffer.ea), buffer)
 
-        for offset, data in results.items():
-            print(hex(offset), data)
         print('EmuIt: finish')
 
     def action_emulate_call_handler(self):
