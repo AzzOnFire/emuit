@@ -43,3 +43,12 @@ class EmuArchX86(EmuArch):
             self.regs['R9'] = r9
 
         return self.stdcall(start_ea, end_ea, *stack_args)
+
+    def unwind(self, call_stack):
+        while len(call_stack):
+            pc, sp = call_stack.pop()
+
+            if self.regs.arch_sp > sp:
+                self.regs.arch_pc = pc
+                self.regs.arch_sp = sp
+                return

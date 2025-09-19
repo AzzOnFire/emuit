@@ -61,3 +61,6 @@ class EmuArch(object):
         data = self._emu.mem[self.regs.arch_sp:self.regs.arch_sp + self.ptr_size]
         self.regs.arch_sp += self.ptr_size
         return int.from_bytes(data, byteorder=self.endian)
+
+    def unwind(self):
+        raise NotImplementedError

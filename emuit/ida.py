@@ -97,6 +97,18 @@ class EmuItIda(EmuIt):
     def _hook_code(self, uc, address, size, user_data):
         super()._hook_code(uc, address, size, user_data)
 
+        insn = ida_ua.insn_t()
+        inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
+        if inslen and insn.itype == ida_allins.NN_call:
+            while len(self._call_stack):
+                pc, sp = self._call_stack[-1]
+                if self.regs.arch_sp >= sp:
+                    break
+
+                self._call_stack.pop()
+
+            self._call_stack.append((self.arch.regs.arch_pc + inslen, self.arch.regs.arch_sp))
+
         if self.skip_external_calls:
             self._skip_external_call(self.arch.regs.arch_pc)
 
@@ -107,6 +119,9 @@ class EmuItIda(EmuIt):
             flags = idaapi.GENDSM_REMOVE_TAGS
             line = idaapi.generate_disasm_line(insn_ea, flags)
             print(hex(insn_ea), line)
+
+        print('Unwinding...')
+        self.arch.unwind(self._call_stack)
 
     @staticmethod
     def _get_name_ea(value: Union[Any, str]):

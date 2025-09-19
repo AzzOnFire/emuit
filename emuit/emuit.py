@@ -13,6 +13,7 @@ class EmuIt(object):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
         self._insn_trace = deque(maxlen=10)
+        self._call_stack = deque()
         self.reset()
 
     def reset(self):
