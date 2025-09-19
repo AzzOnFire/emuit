@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .base import EmuArch
@@ -91,7 +91,7 @@ class EmuRegs():
 
     def __setitem__(
             self,
-            destination: Union[str, int],
+            destination: str,
             value: int):
 
         if value.bit_count() > self._arch.bitness:

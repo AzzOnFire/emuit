@@ -1,3 +1,4 @@
+from collections import Counter, deque
 from typing import TYPE_CHECKING, Literal
 
 from .regs import EmuRegs
@@ -14,7 +15,9 @@ class EmuArch(object):
         self._uc_architecture = uc_architecture
         self._engine = uc.Uc(uc_architecture, uc_mode)
         self._regs: EmuRegs = EmuRegs(self)
-
+        self._unwind_stats: Counter[int] = Counter()
+        self._unwind_stack: deque[tuple[int, int]] = deque()
+    
     @property
     def uc_architecture(self):
         return self._uc_architecture
@@ -58,9 +61,36 @@ class EmuArch(object):
         self._emu.mem[self.regs.arch_sp] = value
 
     def stack_pop(self) -> int:
-        data = self._emu.mem[self.regs.arch_sp:self.regs.arch_sp + self.ptr_size]
+        data: bytes = self._emu.mem[self.regs.arch_sp:self.regs.arch_sp + self.ptr_size]
         self.regs.arch_sp += self.ptr_size
         return int.from_bytes(data, byteorder=self.endian)
 
+    def add_unwind_record(self, return_ea: int):
+        print('checking call stack')
+        while len(self._unwind_stack):
+            pc, sp = self._unwind_stack[-1]
+            print('current SP:', hex(self.regs.arch_sp), 'stored SP:', hex(sp))
+            if self.regs.arch_sp < sp:
+                break
+
+            self._unwind_stack.pop()
+
+        print('add PC:', hex(return_ea), 'SP:', hex(self.regs.arch_sp))
+        self._unwind_stack.append((return_ea, self.regs.arch_sp))
+
     def unwind(self):
-        raise NotImplementedError
+        print('Call stack', self._unwind_stack)
+        while len(self._unwind_stack):
+            pc, sp = self._unwind_stack.pop()
+            print('Extract from call stack', hex(pc), hex(sp))
+
+            if self.regs.arch_sp < sp:
+                self._unwind_stats[pc] += 1
+                if self._unwind_stats[pc] > 10:
+                    print('Max count of attempts reached at', hex(pc))
+                    continue
+
+                print('Unwind to', hex(pc), hex(sp))
+                self.regs.arch_pc = pc
+                self.regs.arch_sp = sp
+                return

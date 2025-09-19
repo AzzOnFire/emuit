@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
 
+import unicorn as uc
+
 from .base import EmuArch
 
 if TYPE_CHECKING:
     from emuit import EmuIt
-
-import unicorn as uc
 
 
 class EmuArchX86(EmuArch):
@@ -43,15 +43,3 @@ class EmuArchX86(EmuArch):
             self.regs['R9'] = r9
 
         return self.stdcall(start_ea, end_ea, *stack_args)
-
-    def unwind(self, call_stack):
-        print('Call stack', call_stack)
-        while len(call_stack):
-            pc, sp = call_stack.pop()
-            print('Extract from call stack', hex(pc), hex(sp))
-
-            if self.regs.arch_sp < sp:
-                print('Unwind to', hex(pc), hex(sp))
-                self.regs.arch_pc = pc
-                self.regs.arch_sp = sp
-                return

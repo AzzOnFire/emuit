@@ -100,17 +100,7 @@ class EmuItIda(EmuIt):
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if inslen and insn.itype == ida_allins.NN_call:
-            print('checking call stack')
-            while len(self._call_stack):
-                pc, sp = self._call_stack[-1]
-                print('current SP:', hex(self.arch.regs.arch_sp), 'stored SP:', hex(sp))
-                if self.arch.regs.arch_sp < sp:
-                    break
-
-                self._call_stack.pop()
-
-            print('add PC:', hex(self.arch.regs.arch_pc), 'SP:', hex(self.arch.regs.arch_sp))
-            self._call_stack.append((self.arch.regs.arch_pc + inslen, self.arch.regs.arch_sp))
+            self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
 
         if self.skip_external_calls:
             self._skip_external_call(self.arch.regs.arch_pc)
@@ -124,7 +114,7 @@ class EmuItIda(EmuIt):
             print(hex(insn_ea), line)
 
         print('Unwinding...')
-        self.arch.unwind(self._call_stack)
+        self.arch.unwind()
         return True
 
     @staticmethod

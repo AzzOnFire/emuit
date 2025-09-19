@@ -12,8 +12,7 @@ class EmuIt(object):
     def __init__(self, uc_architecture: int, uc_mode: int):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
-        self._insn_trace = deque(maxlen=10)
-        self._call_stack = deque()
+        self._insn_trace: deque[int] = deque(maxlen=10)
         self.reset()
 
     def reset(self):
@@ -82,8 +81,13 @@ class EmuIt(object):
         return self._arch
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
+        if len(self.arch._unwind_stack):
+            source, _ = self.arch._unwind_stack[0]
+        else:
+            source = self.arch.regs.arch_pc
+
         user_data.update({
-            address + offset: self.arch.regs.arch_pc
+            address + offset: source
             for offset in range(0, size)
         })
 
@@ -138,10 +142,11 @@ class EmuIt(object):
     def _post_processing(self, entries: dict[int, int]) -> list[Buffer]:
         # chain contiguous memory addresses
         addresses = sorted(entries.keys())
-        chains = Counter()
+        chains: Counter[int] = Counter()
 
+        current_buffer_ea = 0
         for i, ea in enumerate(addresses):
-            if i == 0 or addresses[i] != (addresses[i - 1] + 0x1):
+            if i == 0 or addresses[i] != (addresses[i - 1] + 0x1) or entries[ea] != entries[current_buffer_ea]:
                 current_buffer_ea = ea
             chains[current_buffer_ea] += 1
 
