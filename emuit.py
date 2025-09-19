@@ -7,19 +7,19 @@ import ida_kernwin
 
 
 ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
-assert (ida_version > (7, 4)), "ERROR: EmuIt requires IDA 7.4+"
-assert (sys.version_info >= (3, 5)), "ERROR: EmuIt requires Python 3.6"
+assert (ida_version >= (8, 3)), "ERROR: EmuIt requires IDA 8.3+"
+assert (sys.version_info >= (3, 8)), "ERROR: EmuIt requires Python 3.8"
 
 
 PLUGIN_NAME = 'EmuIt'
-VERSION = '0.6.1'
+VERSION = '0.6.5'
 PLUGIN_HOTKEY = 'Shift+C'
 
 ACTION_RUN = 'EmuIt:run'
 ACTION_RESET = 'EmuIt:reset'
 ACTION_TOGGLE_RESET = 'EmuIt:toggle_reset'
-ACTION_TOGGLE_SKIP_API_CALLS = 'EmuIt:toggle_skip_api_calls'
-ACTION_TOGGLE_BEAUTIFY = 'EmuIt:toggle_beutify'
+ACTION_TOGGLE_SKIP_EXTERNAL_CALLS = 'EmuIt:toggle_skip_external_calls'
+ACTION_TOGGLE_COMMENTS = 'EmuIt:toggle_beutify'
 ACTION_CALL = 'EmuIt:call'
 
 
@@ -44,11 +44,10 @@ class EmuItPlugin(idaapi.plugin_t):
         self.emu = EmuItIda()
         #except Exception as e:
         #    print('EmuIt: an error occurred during initialization:', str(e))
-        #    print('EmuIt: try to rebase program and reopen IDB')
         #    return idaapi.PLUGIN_SKIP
 
         self.reset_every_run = True
-        self.beautify = False
+        self.show_comments = True
 
         action_run = idaapi.action_desc_t(
             ACTION_RUN,
@@ -74,20 +73,20 @@ class EmuItPlugin(idaapi.plugin_t):
             'Reset EmuIt state on every run'
         )
 
-        action_toggle_skip_api_calls = idaapi.action_desc_t(
-            ACTION_TOGGLE_SKIP_API_CALLS,
-            'Skip API calls',
-            action_handler(self.action_toggle_skip_api_calls_handler),
+        action_toggle_skip_external_calls = idaapi.action_desc_t(
+            ACTION_TOGGLE_SKIP_EXTERNAL_CALLS,
+            'Skip external calls',
+            action_handler(self.action_toggle_skip_external_calls_handler),
             None,
-            'Try to skip API calls, you may be lucky!'
+            None,
         )
 
-        action_toggle_beutify = idaapi.action_desc_t(
-            ACTION_TOGGLE_BEAUTIFY,
-            'Filter and beautify results',
-            action_handler(self.action_toggle_beautify_handler),
+        action_toggle_comments = idaapi.action_desc_t(
+            ACTION_TOGGLE_COMMENTS,
+            'Show comments',
+            action_handler(self.action_toggle_comments_handler),
             None,
-            'Beatify output using metrics and ASCII/Unicode encoding'
+            None,
         )
 
         action_call = idaapi.action_desc_t(
@@ -105,14 +104,14 @@ class EmuItPlugin(idaapi.plugin_t):
         idaapi.update_action_checkable(ACTION_TOGGLE_RESET, True)
         idaapi.update_action_checked(ACTION_TOGGLE_RESET, self.reset_every_run)
 
-        idaapi.register_action(action_toggle_skip_api_calls)
-        idaapi.update_action_checkable(ACTION_TOGGLE_SKIP_API_CALLS, True)
-        idaapi.update_action_checked(ACTION_TOGGLE_SKIP_API_CALLS,
-                                     self.emu.skip_api_calls)
+        idaapi.register_action(action_toggle_skip_external_calls)
+        idaapi.update_action_checkable(ACTION_TOGGLE_SKIP_EXTERNAL_CALLS, True)
+        idaapi.update_action_checked(ACTION_TOGGLE_SKIP_EXTERNAL_CALLS,
+                                     self.emu.skip_external_calls)
 
-        idaapi.register_action(action_toggle_beutify)
-        idaapi.update_action_checkable(ACTION_TOGGLE_BEAUTIFY, True)
-        idaapi.update_action_checked(ACTION_TOGGLE_BEAUTIFY, self.beautify)
+        idaapi.register_action(action_toggle_comments)
+        idaapi.update_action_checkable(ACTION_TOGGLE_COMMENTS, True)
+        idaapi.update_action_checked(ACTION_TOGGLE_COMMENTS, self.show_comments)
 
         idaapi.register_action(action_call)
 
@@ -139,7 +138,7 @@ class EmuItPlugin(idaapi.plugin_t):
         print(f'EmuIt: running {start_ea:08X} - {end_ea:08X}')
         buffers = self.emu.run(start_ea, end_ea)
 
-        if self.beautify:
+        if self.show_comments:
             candidate = max(buffers, key=lambda x: x.metric_printable())
             IdaComments.add_comment(candidate.write_instruction_ea, candidate.try_decode())
 
@@ -162,11 +161,11 @@ class EmuItPlugin(idaapi.plugin_t):
     def action_toggle_reset_handler(self):
         self.reset_every_run = bool(not self.reset_every_run)
 
-    def action_toggle_skip_api_calls_handler(self):
-        self.emu.skip_api_calls = bool(not self.emu.skip_api_calls)
+    def action_toggle_skip_external_calls_handler(self):
+        self.emu.skip_external_calls = bool(not self.emu.skip_external_calls)
 
-    def action_toggle_beautify_handler(self):
-        self.beautify = bool(not self.beautify)
+    def action_toggle_comments_handler(self):
+        self.show_comments = bool(not self.show_comments)
 
     def term(self):
         if hasattr(self, 'hooks'):
@@ -191,8 +190,8 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         attach(widget, popup, ACTION_RUN, f'{tree}/')
         attach(widget, popup, ACTION_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_SKIP_API_CALLS, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_BEAUTIFY, f'{tree}/')
+        attach(widget, popup, ACTION_TOGGLE_SKIP_EXTERNAL_CALLS, f'{tree}/')
+        attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
         attach(widget, popup, ACTION_CALL, f'{tree}/')
 
         return 0

@@ -27,8 +27,8 @@ class EmuItIda(EmuIt):
         ida_allins.NN_pushfd, ida_allins.NN_pushfq,
     }
 
-    def __init__(self, skip_api_calls=False):
-        self.skip_api_calls = skip_api_calls
+    def __init__(self, skip_external_calls=False):
+        self.skip_external_calls = skip_external_calls
         uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
         super().__init__(uc_architecture, uc_mode)
 
@@ -97,8 +97,8 @@ class EmuItIda(EmuIt):
     def _hook_code(self, uc, address, size, user_data):
         super()._hook_code(uc, address, size, user_data)
 
-        if self.skip_api_calls:
-            self._skip_api_call(self.arch.regs.arch_pc)
+        if self.skip_external_calls:
+            self._skip_external_call(self.arch.regs.arch_pc)
 
     def _hook_error(self, e):
         super()._hook_error(e)
@@ -117,7 +117,7 @@ class EmuItIda(EmuIt):
 
         return value
 
-    def _skip_api_call(self, call_ea: int):
+    def _skip_external_call(self, call_ea: int):
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, call_ea)
         if not inslen:
