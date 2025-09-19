@@ -176,5 +176,9 @@ class IdaComments(object):
     @staticmethod
     def refresh_current_viewer():
         viewer = ida_kernwin.get_current_viewer()
-        vdui = idaapi.get_widget_vdui(viewer)
-        vdui.refresh_view(True)
+        widget_type = ida_kernwin.get_widget_type(viewer)
+
+        if widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            vdui = idaapi.get_widget_vdui(viewer)
+            if vdui:
+                vdui.refresh_view(True)

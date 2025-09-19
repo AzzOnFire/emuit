@@ -71,7 +71,7 @@ class EmuItIda(EmuIt):
 
         try:
             segment_size = seg.end_ea - seg.start_ea
-            # print('Try to map', hex(seg.start_ea), hex(segment_size))
+            print('Try to map', hex(seg.start_ea), hex(segment_size))
             self.mem.map(seg.start_ea, segment_size)
             self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, segment_size)
         except Exception as e:
@@ -100,13 +100,16 @@ class EmuItIda(EmuIt):
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if inslen and insn.itype == ida_allins.NN_call:
+            print('checking call stack')
             while len(self._call_stack):
                 pc, sp = self._call_stack[-1]
-                if self.regs.arch_sp >= sp:
+                print('current SP:', hex(self.arch.regs.arch_sp), 'stored SP:', hex(sp))
+                if self.arch.regs.arch_sp < sp:
                     break
 
                 self._call_stack.pop()
 
+            print('add PC:', hex(self.arch.regs.arch_pc), 'SP:', hex(self.arch.regs.arch_sp))
             self._call_stack.append((self.arch.regs.arch_pc + inslen, self.arch.regs.arch_sp))
 
         if self.skip_external_calls:
@@ -122,6 +125,7 @@ class EmuItIda(EmuIt):
 
         print('Unwinding...')
         self.arch.unwind(self._call_stack)
+        return True
 
     @staticmethod
     def _get_name_ea(value: Union[Any, str]):

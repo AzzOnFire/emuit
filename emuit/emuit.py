@@ -121,10 +121,17 @@ class EmuIt(object):
                                   self._hook_code,
                                   aux1=uc.x86_const.UC_X86_INS_CALL)
 
-        try:
-            self.arch.engine.emu_start(start_ea, end_ea)
-        except uc.UcError as e:
-            self._hook_error(e)
+        for _ in range(256):
+            try:
+                print('Start emulation from', hex(start_ea), 'to', hex(end_ea))
+                self.arch.engine.emu_start(start_ea, end_ea)
+                break
+            except uc.UcError as e:
+                if not self._hook_error(e):
+                    break
+                else:
+                    start_ea = self.arch.regs.arch_pc
+                    print('Unwinding to', hex(start_ea))
 
         return self._post_processing(user_data)
 

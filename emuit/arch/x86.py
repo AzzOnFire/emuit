@@ -45,10 +45,13 @@ class EmuArchX86(EmuArch):
         return self.stdcall(start_ea, end_ea, *stack_args)
 
     def unwind(self, call_stack):
+        print('Call stack', call_stack)
         while len(call_stack):
             pc, sp = call_stack.pop()
+            print('Extract from call stack', hex(pc), hex(sp))
 
-            if self.regs.arch_sp > sp:
+            if self.regs.arch_sp < sp:
+                print('Unwind to', hex(pc), hex(sp))
                 self.regs.arch_pc = pc
                 self.regs.arch_sp = sp
                 return
