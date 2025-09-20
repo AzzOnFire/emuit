@@ -142,6 +142,7 @@ class EmuItPlugin(idaapi.plugin_t):
             candidates = filter(lambda x: x.metric_printable() > 0.7, buffers)
             for candidate in candidates:
                 IdaComments.add_comment(candidate.write_instruction_ea, candidate.try_decode())
+            IdaComments.refresh_current_viewer()
 
         for buffer in buffers:
             print(hex(buffer.write_instruction_ea), hex(buffer.ea), buffer.metric_printable(), buffer)

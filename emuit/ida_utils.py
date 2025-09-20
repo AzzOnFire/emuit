@@ -153,14 +153,13 @@ class IdaComments(object):
     def add_comment(cls, ea: int, text: str):
         cls.add_disassembly_comment(ea, text)
         cls.add_pseudocode_comment(ea, text)
-        cls.refresh_current_viewer()
 
-    @classmethod
-    def add_disassembly_comment(cls, ea: int, text: str):
+    @staticmethod
+    def add_disassembly_comment(ea: int, text: str):
         idc.set_cmt(ea, text, 0)
 
-    @classmethod
-    def add_pseudocode_comment(cls, ea: int, text: str):
+    @staticmethod
+    def add_pseudocode_comment(ea: int, text: str):
         cfunc = idaapi.decompile(ea)
         if not cfunc:
             print("Failed to decompile function.")
