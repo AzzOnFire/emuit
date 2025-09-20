@@ -1,3 +1,4 @@
+import bisect
 from typing import Union
 
 import unicorn as uc
@@ -10,6 +11,9 @@ class EmuMemory(object):
         self._engine: uc.Uc = engine
         self._engine.ctl_get_mode()
 
+        self.heap_min = 0x10000000  # after program segments
+        self.heap_max = 0x70000000  # before system libraries
+
     def map_anywhere(self, size: int) -> int:
         return self.map(None, size)
 
@@ -19,29 +23,32 @@ class EmuMemory(object):
         return ea
 
     def map(self, address: int | None = None, size: int = 0x100) -> int:
+        # import traceback
+        # for line in traceback.format_stack():
+        #     print(line.strip())
+        # print('Total map:')
+        # for i, (start, end) in enumerate(self.mapping):
+        #    print('-', hex(start), hex(end))
+
         size = self.__align_high(size)
         if address is None:
-            address = self.find_free_space(size)            
-            block = (address, address + size)
-            self._engine.mem_map(address, size)
-            self.mapping.append(block)
-            return address
+            address = self.find_free_space(size)   
 
         address = self.__align_low(address)
-        block = (address, address + size)
 
-        if not self.mapping:
-            self._engine.mem_map(address, size)
-            self.mapping.append(block)
-            return address
+        return self._insert_block(address, size)
+
+    def _insert_block(self, address: int, size: int):
+        _start, _end = address, address + size
 
         for i, (start, end) in enumerate(self.mapping):
-            if start <= address and (address + size) <= end:
-                raise ValueError(f'Can\'t map memory at 0x{address:0X}')
+            # print(f'Compare 0x{_start:0X}-0x{_end:0X} against 0x{start:0X}-0x{end:0X}')
+            if (start <= _start and _end <= end) or (start <= _start < end) or (start < _end <= end):
+                raise ValueError(f'Can\'t map 0x{_start:0X}-0x{_end:0X}: already allocated with 0x{start:0X}-0x{end:0X}')
 
-            self._engine.mem_map(address, size)
-            self.mapping.insert(i, block)
-            return address
+        bisect.insort(self.mapping, (_start, _end))
+        self._engine.mem_map(address, size)
+        return address
 
     def query(self, address: int) -> tuple[int, int] | None:
         for _, (start, end) in enumerate(self.mapping):
@@ -76,19 +83,24 @@ class EmuMemory(object):
         return bytes(self._engine.mem_read(address, size))
 
     def find_free_space(self, size):
-        if not self.mapping:
-            return 0
+        heap_segments = list(filter(
+            lambda start, end: start >= self.heap_start and end <= self.heap_end, 
+            self.mapping
+        ))
 
-        # find free space between already allocated segments
-        prev_end = 0
-        for i, (start, end) in enumerate(self.mapping):
+        if not heap_segments:
+            return self.heap_min
+
+        # find free space between already allocated segments in heap
+        prev_end = self.heap_min
+        for i, (start, end) in enumerate(heap_segments):
             if start - self.__align_high(prev_end) > size:
                 return self.__align_high(prev_end)
  
             prev_end = end
 
         # if still not found
-        max_address = max(end for _, end in self.mapping)
+        max_address = max(end for _, end in heap_segments)
 
         return self.__align_high(max_address)
 

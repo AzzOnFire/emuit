@@ -69,21 +69,34 @@ class EmuItIda(EmuIt):
         if not seg:
             return False
 
+        seg_size = seg.end_ea - seg.start_ea
+        # TODO fix Exception to Unicorn specific exception
+        print('Try to map', hex(seg.start_ea), hex(seg_size))
         try:
-            segment_size = seg.end_ea - seg.start_ea
-            print('Try to map', hex(seg.start_ea), hex(segment_size))
-            self.mem.map(seg.start_ea, segment_size)
-            self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, segment_size)
+            self.mem.map(seg.start_ea, seg_size)
+        except Exception as e:
+            print(e)
+
+        try:
+            print('Copy from database to unicorn memory', hex(seg.start_ea), hex(seg_size))
+            self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, seg_size)
         except Exception as e:
             print(e)
             return False
 
         return True
 
+    def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
+        if not self._map_from_ida(address):
+            self.mem.map(address, 0x1000)
+
+        return self._hook_mem_write(user_data, address, size)
+
     def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
         return self._map_from_ida(address)
 
     def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
+        print('Read unmapped', hex(address), hex(size), value)
         return self._map_from_ida(address)
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
