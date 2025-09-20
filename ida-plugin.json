@@ -2,11 +2,26 @@
     "IDAMetadataDescriptorVersion": 1,
     "plugin": {
       "name": "EmuIt",
-      "entryPoint": "emuit",
+      "entryPoint": "emuit.py",
       "categories": ["debugging-and-tracing"],
       "logoPath": "images/logo.png",
       "idaVersions": ">=8.3",
       "description" : "Easy-to-use IDA PRO emulator plugin based on unicorn",
-      "version": "0.3.2"
+      "version": "0.6.5",
+      "license": "GPL-3.0",
+      "urls": {
+        "repository": "https://github.com/AzzOnFire/yarka"
+      },
+      "authors": [{
+        "name": "AzzOnFire"
+      }],
+      "keywords": [
+        "deobfuscation",
+        "emulation",
+        "unicorn",
+        "malware-analysis",
+        "emulate-selection",
+        "strings-extraction"
+      ]
     }
 }

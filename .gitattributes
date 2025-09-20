@@ -1,0 +1,7 @@
+/images export-ignore
+/tests export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+ida-plugin.json export-ignore
+LICENSE export-ignore
+README.MD export-ignore
