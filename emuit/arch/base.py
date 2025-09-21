@@ -9,6 +9,8 @@ import unicorn as uc
 
 
 class EmuArch(object):
+    UNWIND_MAX_ATTEMPTS = 5
+
     def __init__(self, emu: "EmuIt", uc_architecture: int, uc_mode: int):
         self._emu: "EmuIt" = emu
         self._uc_mode = uc_mode
@@ -86,8 +88,8 @@ class EmuArch(object):
 
             if self.regs.arch_sp < sp:
                 self._unwind_stats[pc] += 1
-                if self._unwind_stats[pc] > 10:
-                    print('Max count of attempts reached at', hex(pc))
+                if self._unwind_stats[pc] > self.UNWIND_MAX_ATTEMPTS:
+                    print('Maximum count of attempts reached at', hex(pc))
                     continue
 
                 print('Unwind to', hex(pc), hex(sp))
