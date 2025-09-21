@@ -13,6 +13,8 @@ import ida_idp
 import ida_funcs
 import ida_name
 import ida_hexrays
+import ida_typeinf
+import ida_nalt
 import idc
 
 
@@ -123,10 +125,38 @@ class EmuItIda(EmuIt):
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
+            # TODO: self.get_stack_args_size
             self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
 
         if self.skip_external_calls:
             self._skip_external_call(self.arch.regs.arch_pc)
+
+    # TODO: skip stack arguments
+    @staticmethod
+    def get_stack_args_size(func_ea: int) -> int:
+        args_size = idc.get_func_attr(func_ea, idc.FUNCATTR_ARGSIZE)
+        if args_size != idaapi.BADADDR:
+            return args_size
+
+        tif = ida_typeinf.tinfo_t()
+        if ida_nalt.get_tinfo(tif, func_ea):
+            if tif.is_funcptr():
+                data = ida_typeinf.ptr_type_data_t()
+                if not tif.get_ptr_details(data):
+                    return 0
+        
+                tif = data.obj_type
+            
+            func_data = ida_typeinf.func_type_data_t()
+            if tif.is_func() and tif.get_func_details(func_data):
+                total_size = 0
+                for i in range(func_data.size()):
+                    arg_type = func_data[i].type
+                    if arg_type:
+                        total_size += arg_type.get_size()
+                return total_size
+
+        return 0
 
     def _hook_error(self, e):
         super()._hook_error(e)
