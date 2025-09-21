@@ -3,6 +3,7 @@ from typing import Any, Union
 from .emuit import EmuIt
 from .ida_utils import IdaUcUtils
 
+import unicorn as uc
 import idaapi
 import ida_segment
 import ida_bytes
@@ -37,8 +38,8 @@ class EmuItIda(EmuIt):
         ida_allins.NN_pushfq,
     }
 
-    def __init__(self, skip_external_calls=False):
-        self.skip_external_calls = skip_external_calls
+    def __init__(self, enable_unwind: bool = True):
+        self.enable_unwind = enable_unwind
         uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
         super().__init__(uc_architecture, uc_mode)
 
@@ -84,7 +85,7 @@ class EmuItIda(EmuIt):
         print("Try to map", hex(seg.start_ea), hex(seg_size))
         try:
             self.mem.map(seg.start_ea, seg_size)
-        except Exception as e:
+        except uc.UcError as e:
             print(e)
 
         try:
@@ -92,7 +93,7 @@ class EmuItIda(EmuIt):
                 "Copy from database to unicorn memory", hex(seg.start_ea), hex(seg_size)
             )
             self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, seg_size)
-        except Exception as e:
+        except uc.UcError as e:
             print(e)
             return False
 
@@ -122,14 +123,12 @@ class EmuItIda(EmuIt):
     def _hook_code(self, uc, address, size, user_data):
         super()._hook_code(uc, address, size, user_data)
 
-        insn = ida_ua.insn_t()
-        inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
-        if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
-            # TODO: self.get_stack_args_size
-            self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
-
-        if self.skip_external_calls:
-            self._skip_external_call(self.arch.regs.arch_pc)
+        if self.enable_unwind:
+            insn = ida_ua.insn_t()
+            inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
+            if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
+                # TODO: self.get_stack_args_size
+                self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
 
     # TODO: skip stack arguments
     @staticmethod

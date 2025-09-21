@@ -18,7 +18,7 @@ PLUGIN_HOTKEY = 'Shift+C'
 ACTION_RUN = 'EmuIt:run'
 ACTION_RESET = 'EmuIt:reset'
 ACTION_TOGGLE_RESET = 'EmuIt:toggle_reset'
-ACTION_TOGGLE_SKIP_EXTERNAL_CALLS = 'EmuIt:toggle_skip_external_calls'
+ACTION_TOGGLE_UNWIND = 'EmuIt:toggle_unwind'
 ACTION_TOGGLE_COMMENTS = 'EmuIt:toggle_beutify'
 ACTION_CALL = 'EmuIt:call'
 
@@ -73,10 +73,10 @@ class EmuItPlugin(idaapi.plugin_t):
             'Reset EmuIt state on every run'
         )
 
-        action_toggle_skip_external_calls = idaapi.action_desc_t(
-            ACTION_TOGGLE_SKIP_EXTERNAL_CALLS,
-            'Skip external calls',
-            action_handler(self.action_toggle_skip_external_calls_handler),
+        action_toggle_unwind = idaapi.action_desc_t(
+            ACTION_TOGGLE_UNWIND,
+            'Unwind on error',
+            action_handler(self.action_toggle_unwind_handler),
             None,
             None,
         )
@@ -104,10 +104,9 @@ class EmuItPlugin(idaapi.plugin_t):
         idaapi.update_action_checkable(ACTION_TOGGLE_RESET, True)
         idaapi.update_action_checked(ACTION_TOGGLE_RESET, self.reset_every_run)
 
-        idaapi.register_action(action_toggle_skip_external_calls)
-        idaapi.update_action_checkable(ACTION_TOGGLE_SKIP_EXTERNAL_CALLS, True)
-        idaapi.update_action_checked(ACTION_TOGGLE_SKIP_EXTERNAL_CALLS,
-                                     self.emu.skip_external_calls)
+        idaapi.register_action(action_toggle_unwind)
+        idaapi.update_action_checkable(ACTION_TOGGLE_UNWIND, True)
+        idaapi.update_action_checked(ACTION_TOGGLE_UNWIND, self.emu.enable_unwind)
 
         idaapi.register_action(action_toggle_comments)
         idaapi.update_action_checkable(ACTION_TOGGLE_COMMENTS, True)
@@ -163,8 +162,8 @@ class EmuItPlugin(idaapi.plugin_t):
     def action_toggle_reset_handler(self):
         self.reset_every_run = bool(not self.reset_every_run)
 
-    def action_toggle_skip_external_calls_handler(self):
-        self.emu.skip_external_calls = bool(not self.emu.skip_external_calls)
+    def action_toggle_unwind_handler(self):
+        self.emu.enable_unwind = bool(not self.emu.enable_unwind)
 
     def action_toggle_comments_handler(self):
         self.show_comments = bool(not self.show_comments)
@@ -192,7 +191,7 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         attach(widget, popup, ACTION_RUN, f'{tree}/')
         attach(widget, popup, ACTION_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_SKIP_EXTERNAL_CALLS, f'{tree}/')
+        attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
         attach(widget, popup, ACTION_CALL, f'{tree}/')
 
