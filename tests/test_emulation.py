@@ -25,6 +25,7 @@ def test_stackstring(emuit_x8664: EmuIt):
     emuit_x8664.mem[ea] = code
 
     results = emuit_x8664.run(ea, ea + len(code))
+    print(results)
     assert any('\\*.exe' in x.try_decode() for x in results)
 
 

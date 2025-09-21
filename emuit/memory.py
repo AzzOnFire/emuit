@@ -93,7 +93,7 @@ class EmuMemory(object):
     def find_free_space(self, size):
         heap_segments = list(
             filter(
-                lambda start, end: start >= self.heap_start and end <= self.heap_end,
+                lambda x: self.heap_min <= x[0] and x[1] <= self.heap_max,
                 self.mapping,
             )
         )

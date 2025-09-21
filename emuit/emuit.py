@@ -92,7 +92,7 @@ class EmuIt(object):
 
     def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
         self.mem.map(address, 0x1000)
-        self._hook_mem_write(user_data, address, size)
+        self._hook_mem_write(uc, access, address, size, value, user_data)
 
         return True
 
