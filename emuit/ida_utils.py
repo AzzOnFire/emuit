@@ -19,7 +19,7 @@ class IdaUcUtils(object):
             elif ida_ida.inf_is_16bit():
                 return uc.unicorn_const.UC_MODE_16
             else:
-                raise ValueError('Unknown architecture bitness')
+                raise ValueError("Unknown architecture bitness")
         else:
             info = idaapi.get_inf_structure()
             if info.is_64bit():
@@ -51,29 +51,45 @@ class IdaUcUtils(object):
     def get_uc_arch_mode(cls):
         proc = cls.get_processor_name()
         mode = cls.get_uc_bitness()
-        if proc == "metapc": 
+        if proc == "metapc":
             arch = uc.unicorn_const.UC_ARCH_X86
         elif "arm" in proc:
-            arch = uc.unicorn_const.UC_ARCH_ARM64 if mode == uc.unicorn_const.UC_MODE_64 else uc.unicorn_const.UC_ARCH_ARM
-        elif "mips" in proc:    # mipsb, mipsl
-            mode |= uc.unicorn_const.UC_MODE_BIG_ENDIAN if 'mispb' in proc else uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
+            arch = (
+                uc.unicorn_const.UC_ARCH_ARM64
+                if mode == uc.unicorn_const.UC_MODE_64
+                else uc.unicorn_const.UC_ARCH_ARM
+            )
+        elif "mips" in proc:  # mipsb, mipsl
+            mode |= (
+                uc.unicorn_const.UC_MODE_BIG_ENDIAN
+                if "mispb" in proc
+                else uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
+            )
             arch = uc.unicorn_const.UC_ARCH_MIPS
-        elif "ppc" in proc:     # ppc, ppcl
-            mode |= uc.unicorn_const.UC_MODE_LITTLE_ENDIAN if 'ppcl' in proc else uc.unicorn_const.UC_MODE_BIG_ENDIAN
+        elif "ppc" in proc:  # ppc, ppcl
+            mode |= (
+                uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
+                if "ppcl" in proc
+                else uc.unicorn_const.UC_MODE_BIG_ENDIAN
+            )
             arch = uc.unicorn_const.UC_ARCH_PPC
         elif "riscv" in proc:
             arch = uc.unicorn_const.UC_ARCH_RISCV
-        elif "s390" in proc:    # s390 - 32bit, s390x - 64bit
+        elif "s390" in proc:  # s390 - 32bit, s390x - 64bit
             arch = uc.unicorn_const.UC_ARCH_S390X
         elif "tricore" in proc:
             arch = uc.unicorn_const.UC_ARCH_TRICORE
-        elif "sparc" in proc:   # sparcb sparcl
-            mode |= uc.unicorn_const.UC_MODE_BIG_ENDIAN if 'sparcb' in proc else uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
+        elif "sparc" in proc:  # sparcb sparcl
+            mode |= (
+                uc.unicorn_const.UC_MODE_BIG_ENDIAN
+                if "sparcb" in proc
+                else uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
+            )
             arch = uc.unicorn_const.UC_ARCH_SPARC
         elif "68k" in proc:
             arch = uc.unicorn_const.UC_ARCH_M68K
         else:
-            raise ValueError('Unsupported arch')
+            raise ValueError("Unsupported arch")
 
         return arch, mode
 
@@ -122,11 +138,11 @@ class IdaCallSelection:
             if ctree_item.op == ida_hexrays.cot_call and ctree_item.ea == ea:
                 return ctree_item
             if ctree_item.is_expr():
-                if hasattr(ctree_item, 'x') and ctree_item.x:
+                if hasattr(ctree_item, "x") and ctree_item.x:
                     found = find_call_node(ctree_item.x)
                     if found:
                         return found
-                if hasattr(ctree_item, 'a') and ctree_item.a:
+                if hasattr(ctree_item, "a") and ctree_item.a:
                     for arg in ctree_item.a:
                         found = find_call_node(arg)
                         if found:
@@ -164,10 +180,10 @@ class IdaComments(object):
         if not cfunc:
             print("Failed to decompile function.")
             return
-        
+
         tl = idaapi.treeloc_t()
         tl.ea = ea
-        tl.itp = idaapi.ITP_SEMI # comment after a semicolon
+        tl.itp = idaapi.ITP_SEMI  # comment after a semicolon
 
         cfunc.set_user_cmt(tl, text)
         cfunc.save_user_cmts()

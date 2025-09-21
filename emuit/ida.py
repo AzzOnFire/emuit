@@ -18,13 +18,21 @@ import idc
 
 class EmuItIda(EmuIt):
     SKIP_WRITE_MEM_INSNS = {
-        ida_allins.NN_call, ida_allins.NN_callfi, ida_allins.NN_callni,
-        ida_allins.NN_enter, ida_allins.NN_enterw,
-        ida_allins.NN_enterd, ida_allins.NN_enterq,
-        ida_allins.NN_pusha, ida_allins.NN_pushaw,
-        ida_allins.NN_pushad, ida_allins.NN_pushaq,
-        ida_allins.NN_pushfw, ida_allins.NN_pushf,
-        ida_allins.NN_pushfd, ida_allins.NN_pushfq,
+        ida_allins.NN_call,
+        ida_allins.NN_callfi,
+        ida_allins.NN_callni,
+        ida_allins.NN_enter,
+        ida_allins.NN_enterw,
+        ida_allins.NN_enterd,
+        ida_allins.NN_enterq,
+        ida_allins.NN_pusha,
+        ida_allins.NN_pushaw,
+        ida_allins.NN_pushad,
+        ida_allins.NN_pushaq,
+        ida_allins.NN_pushfw,
+        ida_allins.NN_pushf,
+        ida_allins.NN_pushfd,
+        ida_allins.NN_pushfq,
     }
 
     def __init__(self, skip_external_calls=False):
@@ -35,7 +43,7 @@ class EmuItIda(EmuIt):
     def smartcall(self, func_call_ea: int):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:
-            raise ValueError('Wrong call address (must point to existing function)')
+            raise ValueError("Wrong call address (must point to existing function)")
 
         func_ea = refs[0]
         func = ida_funcs.get_func(func_ea)
@@ -71,14 +79,16 @@ class EmuItIda(EmuIt):
 
         seg_size = seg.end_ea - seg.start_ea
         # TODO fix Exception to Unicorn specific exception
-        print('Try to map', hex(seg.start_ea), hex(seg_size))
+        print("Try to map", hex(seg.start_ea), hex(seg_size))
         try:
             self.mem.map(seg.start_ea, seg_size)
         except Exception as e:
             print(e)
 
         try:
-            print('Copy from database to unicorn memory', hex(seg.start_ea), hex(seg_size))
+            print(
+                "Copy from database to unicorn memory", hex(seg.start_ea), hex(seg_size)
+            )
             self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, seg_size)
         except Exception as e:
             print(e)
@@ -96,7 +106,7 @@ class EmuItIda(EmuIt):
         return self._map_from_ida(address)
 
     def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
-        print('Read unmapped', hex(address), hex(size), value)
+        print("Read unmapped", hex(address), hex(size), value)
         return self._map_from_ida(address)
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
@@ -126,7 +136,7 @@ class EmuItIda(EmuIt):
             line = idaapi.generate_disasm_line(insn_ea, flags)
             print(hex(insn_ea), line)
 
-        print('Unwinding...')
+        print("Unwinding...")
         self.arch.unwind()
         return True
 
@@ -149,15 +159,15 @@ class EmuItIda(EmuIt):
             arg_addrs = idaapi.get_arg_addrs(call_ea)
             arg_addrs = arg_addrs if arg_addrs is not None else []
 
-            print(f'Skip API call at 0x{call_ea:0X}...')
+            print(f"Skip API call at 0x{call_ea:0X}...")
             for arg_ea in arg_addrs:
-                arg_insn = ida_ua.insn_t() 
+                arg_insn = ida_ua.insn_t()
                 if not ida_ua.decode_insn(arg_insn, arg_ea):
                     continue
 
                 # TODO understand why argsize attribute
                 # do not working with api calls
-                if 'push' in arg_insn.get_canon_mnem():
+                if "push" in arg_insn.get_canon_mnem():
                     self.arch.regs.arch_sp += self.arch.ptr_size
 
             self.arch.regs.arch_pc += inslen

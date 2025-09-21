@@ -3,10 +3,13 @@ from statistics import mode
 
 
 class Buffer(bytes):
+    _ea: int
+    _last_write_addresses: list[int]
+
     def __new__(cls, ea: int, data: bytes, write_addresses: list | None = None):
         instance = super().__new__(cls, data)
         instance._ea = ea
-        instance._last_write_addresses = write_addresses
+        instance._last_write_addresses = write_addresses or []
         return instance
 
     @property
@@ -21,20 +24,19 @@ class Buffer(bytes):
         return mode(filter(None, self._last_write_addresses))
 
     def try_decode(self):
-        result = ''
+        result = ""
 
         if self.metric_unicode() > 0.65:
             try:
-                result = self.decode('UTF-16-LE')
+                result = self.decode("UTF-16-LE")
             except UnicodeDecodeError:
                 result = self.hex()
         else:
-            result = self.decode(errors='replace')
-    
-        result = result.strip('\0') \
-                        .encode('unicode_escape') \
-                        .decode() \
-                        .replace('\"', '\\"')
+            result = self.decode(errors="replace")
+
+        result = (
+            result.strip("\0").encode("unicode_escape").decode().replace('"', '\\"')
+        )
 
         return result
 
@@ -48,7 +50,7 @@ class Buffer(bytes):
                 metric += 1
 
         return metric / (len(self) / 2)
-     
+
     def metric_printable(self) -> float:
         printable = set(string.printable.encode())
         metric = sum([1.0 if x in printable else -1.0 for x in self])

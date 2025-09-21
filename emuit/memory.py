@@ -32,7 +32,7 @@ class EmuMemory(object):
 
         size = self.__align_high(size)
         if address is None:
-            address = self.find_free_space(size)   
+            address = self.find_free_space(size)
 
         address = self.__align_low(address)
 
@@ -43,8 +43,14 @@ class EmuMemory(object):
 
         for i, (start, end) in enumerate(self.mapping):
             # print(f'Compare 0x{_start:0X}-0x{_end:0X} against 0x{start:0X}-0x{end:0X}')
-            if (start <= _start and _end <= end) or (start <= _start < end) or (start < _end <= end):
-                raise ValueError(f'Can\'t map 0x{_start:0X}-0x{_end:0X}: already allocated with 0x{start:0X}-0x{end:0X}')
+            if (
+                (start <= _start and _end <= end)
+                or (start <= _start < end)
+                or (start < _end <= end)
+            ):
+                raise ValueError(
+                    f"Can't map 0x{_start:0X}-0x{_end:0X}: already allocated with 0x{start:0X}-0x{end:0X}"
+                )
 
         bisect.insort(self.mapping, (_start, _end))
         self._engine.mem_map(address, size)
@@ -64,18 +70,20 @@ class EmuMemory(object):
                 del self.mapping[i]
                 return
 
-        raise ValueError(f'Can\'t unmap memory at 0x{address:0X}')
+        raise ValueError(f"Can't unmap memory at 0x{address:0X}")
 
     def write(self, address: Union[str, int], data: Union[int, bytes]):
         address = int(address)
         if not isinstance(address, int):
-            raise ValueError(f'Invalid address ({address}) specified for memory write destination')
+            raise ValueError(
+                f"Invalid address ({address}) specified for memory write destination"
+            )
 
         if not self.query(address):
-            raise ValueError(f'Write to unmapped memory at 0x{address:0X}')
+            raise ValueError(f"Write to unmapped memory at 0x{address:0X}")
 
         if isinstance(data, int):
-            data = data.to_bytes(self._ptr_size, byteorder='little')
+            data = data.to_bytes(self._ptr_size, byteorder="little")
 
         return self._engine.mem_write(int(address), data)
 
@@ -83,10 +91,12 @@ class EmuMemory(object):
         return bytes(self._engine.mem_read(address, size))
 
     def find_free_space(self, size):
-        heap_segments = list(filter(
-            lambda start, end: start >= self.heap_start and end <= self.heap_end, 
-            self.mapping
-        ))
+        heap_segments = list(
+            filter(
+                lambda start, end: start >= self.heap_start and end <= self.heap_end,
+                self.mapping,
+            )
+        )
 
         if not heap_segments:
             return self.heap_min
@@ -96,7 +106,7 @@ class EmuMemory(object):
         for i, (start, end) in enumerate(heap_segments):
             if start - self.__align_high(prev_end) > size:
                 return self.__align_high(prev_end)
- 
+
             prev_end = end
 
         # if still not found
@@ -107,12 +117,12 @@ class EmuMemory(object):
     def __setitem__(self, key: Union[int, int], value: Union[int, bytes]):
         return self.write(key, value)
 
-    def __getitem__(self, source: Union[int, slice]) -> Union[int, bytes]:
+    def __getitem__(self, source: Union[int, slice]) -> bytes:
         if isinstance(source, slice):
             if source.step != 1 and source.step is not None:
-                raise IndexError('step != 1 not supported')
+                raise IndexError("step != 1 not supported")
             if source.start is None or source.stop is None:
-                raise IndexError('range must be limited')
+                raise IndexError("range must be limited")
 
             length = source.stop - source.start
             return self.read(source.start, length)

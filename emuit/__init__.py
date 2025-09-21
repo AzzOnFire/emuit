@@ -9,9 +9,13 @@ __all__ = [
 try:
     from .ida import EmuItIda
     from .ida_utils import IdaCallSelection, IdaComments
-    __all__.extend([
-        EmuItIda,
-        IdaCallSelection
-    ])
+
+    __all__.extend(
+        [
+            EmuItIda,
+            IdaCallSelection,
+            IdaComments,
+        ]
+    )
 except ImportError:
-    print('IDA modules unavailable')
+    print("IDA modules unavailable")

@@ -61,7 +61,7 @@ class EmuArch(object):
         self._emu.mem[self.regs.arch_sp] = value
 
     def stack_pop(self) -> int:
-        data: bytes = self._emu.mem[self.regs.arch_sp:self.regs.arch_sp + self.ptr_size]
+        data: bytes = self._emu.mem.read(self.regs.arch_sp, self.ptr_size)
         self.regs.arch_sp += self.ptr_size
         return int.from_bytes(data, byteorder=self.endian)
 
