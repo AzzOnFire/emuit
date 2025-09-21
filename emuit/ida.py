@@ -122,7 +122,7 @@ class EmuItIda(EmuIt):
 
         insn = ida_ua.insn_t()
         inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
-        if inslen and insn.itype == ida_allins.NN_call:
+        if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
             self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
 
         if self.skip_external_calls:
