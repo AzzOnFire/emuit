@@ -125,7 +125,8 @@ class EmuItIda(EmuIt):
         if self.enable_unwind:
             insn = ida_ua.insn_t()
             inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
-            if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
+            # TODO: include indirect_jump_insn() to unwinding ?
+            if inslen and ida_idp.is_call_insn(insn):
                 call_target_ea = insn.ops[0].addr
                 purged = self.get_purged_bytes_number(call_target_ea)
                 self.arch.add_unwind_record(
@@ -152,12 +153,13 @@ class EmuItIda(EmuIt):
     def _hook_error(self, e):
         super()._hook_error(e)
 
+        print('Error: ', e)
+        print('Last instructions trace:')
         for insn_ea in self._insn_trace:
             flags = idaapi.GENDSM_REMOVE_TAGS
             line = idaapi.generate_disasm_line(insn_ea, flags)
             print(hex(insn_ea), line)
 
-        print("Unwinding...")
         self.arch.unwind()
         return True
 

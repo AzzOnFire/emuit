@@ -92,10 +92,9 @@ class EmuArch(object):
         self._unwind_stack.append(UnwindHandler(return_ea, sp_value, label))
     
     def unwind(self):
-        print('Call stack', self._unwind_stack)
         while len(self._unwind_stack):
             handler = self._unwind_stack.pop()
-            print('Extract from call stack', hex(handler.pc), hex(handler.sp))
+            print('Next unwind handler', handler)
 
             if self.regs.arch_sp < handler.sp:
                 self._unwind_stats[handler.pc] += 1
