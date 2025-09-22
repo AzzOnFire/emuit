@@ -1,11 +1,19 @@
 from collections import Counter, deque
 from typing import TYPE_CHECKING, Literal
+from dataclasses import dataclass
 
 from .regs import EmuRegs
 if TYPE_CHECKING:
     from emuit import EmuIt
 
 import unicorn as uc
+
+
+@dataclass(frozen=True)
+class UnwindHandler():
+    pc: int
+    sp: int
+    label: str
 
 
 class EmuArch(object):
@@ -18,7 +26,7 @@ class EmuArch(object):
         self._engine = uc.Uc(uc_architecture, uc_mode)
         self._regs: EmuRegs = EmuRegs(self)
         self._unwind_stats: Counter[int] = Counter()
-        self._unwind_stack: deque[tuple[int, int]] = deque()
+        self._unwind_stack: deque[UnwindHandler] = deque()
     
     @property
     def uc_architecture(self):
@@ -67,32 +75,32 @@ class EmuArch(object):
         self.regs.arch_sp += self.ptr_size
         return int.from_bytes(data, byteorder=self.endian)
 
-    def add_unwind_record(self, return_ea: int, sp_value: int):
+    def add_unwind_record(self, return_ea: int, sp_value: int, label: str = ''):
         print('checking call stack')
         while len(self._unwind_stack):
-            pc, record_sp = self._unwind_stack[-1]
-            print('tr SP:', hex(sp_value), 'stored SP:', hex(record_sp))
-            if sp_value < record_sp:
+            handler = self._unwind_stack[-1]
+            print('tr SP:', hex(sp_value), 'stored SP:', hex(handler.sp))
+            if sp_value < handler.sp:
                 break
 
             self._unwind_stack.pop()
 
         print('add PC:', hex(return_ea), 'SP:', hex(sp_value))
-        self._unwind_stack.append((return_ea, sp_value))
+        self._unwind_stack.append(UnwindHandler(return_ea, sp_value, label))
     
     def unwind(self):
         print('Call stack', self._unwind_stack)
         while len(self._unwind_stack):
-            pc, sp = self._unwind_stack.pop()
-            print('Extract from call stack', hex(pc), hex(sp))
+            handler = self._unwind_stack.pop()
+            print('Extract from call stack', hex(handler.pc), hex(handler.sp))
 
-            if self.regs.arch_sp < sp:
-                self._unwind_stats[pc] += 1
-                if self._unwind_stats[pc] > self.UNWIND_MAX_ATTEMPTS:
-                    print('Maximum count of attempts reached at', hex(pc))
+            if self.regs.arch_sp < handler.sp:
+                self._unwind_stats[handler.pc] += 1
+                if self._unwind_stats[handler.pc] > self.UNWIND_MAX_ATTEMPTS:
+                    print('Maximum count of attempts reached at', hex(handler.pc))
                     continue
 
-                print('Unwind to', hex(pc), hex(sp))
-                self.regs.arch_pc = pc
-                self.regs.arch_sp = sp
+                print('Unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
+                self.regs.arch_pc = handler.pc
+                self.regs.arch_sp = handler.sp
                 return

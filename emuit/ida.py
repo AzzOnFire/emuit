@@ -109,7 +109,6 @@ class EmuItIda(EmuIt):
         return self._map_from_ida(address)
 
     def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
-        print("Read unmapped", hex(address), hex(size), value)
         return self._map_from_ida(address)
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
@@ -131,7 +130,8 @@ class EmuItIda(EmuIt):
                 purged = self.get_purged_bytes_number(call_target_ea)
                 self.arch.add_unwind_record(
                     return_ea=self.arch.regs.arch_pc + inslen,
-                    sp_value=self.arch.regs.arch_sp + purged
+                    sp_value=self.arch.regs.arch_sp + purged,
+                    label=idaapi.get_name(call_target_ea),
                 )
 
     @staticmethod

@@ -84,7 +84,8 @@ class EmuIt(object):
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         if len(self.arch._unwind_stack):
-            source, _ = self.arch._unwind_stack[0]
+            handler = self.arch._unwind_stack[0]    # pass from a function
+            source = handler.pc
         else:
             source = self.arch.regs.arch_pc
 
