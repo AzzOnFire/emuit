@@ -1,9 +1,10 @@
 import sys
 
-from emuit import EmuItIda, IdaUiUtils, IdaCommentUtils 
-
 import idaapi
 import ida_kernwin
+import idautils
+
+from emuit import EmuItIda, IdaUiUtils, IdaCommentUtils 
 
 
 ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
@@ -17,10 +18,11 @@ PLUGIN_HOTKEY = 'Shift+C'
 
 ACTION_RUN = 'EmuIt:run'
 ACTION_RESET = 'EmuIt:reset'
+ACTION_CALL = 'EmuIt:call'
+ACTION_EMULATE_CALLS = 'EmuIt:emulate_calls'
 ACTION_TOGGLE_RESET = 'EmuIt:toggle_reset'
 ACTION_TOGGLE_UNWIND = 'EmuIt:toggle_unwind'
 ACTION_TOGGLE_COMMENTS = 'EmuIt:toggle_beutify'
-ACTION_CALL = 'EmuIt:call'
 
 
 class EmuItPlugin(idaapi.plugin_t):
@@ -97,6 +99,14 @@ class EmuItPlugin(idaapi.plugin_t):
             'Emulate selected function in pseudocode/disassembly view'
         )
 
+        action_call = idaapi.action_desc_t(
+            ACTION_EMULATE_CALLS,
+            'Emulate all function calls',
+            action_handler(self.action_emulate_calls_handler),
+            None,
+            'Emulate selected functions'
+        )
+
         idaapi.register_action(action_run)
         idaapi.register_action(action_reset)
 
@@ -136,15 +146,14 @@ class EmuItPlugin(idaapi.plugin_t):
 
         print(f'EmuIt: running {start_ea:08X} - {end_ea:08X}')
         buffers = self.emu.run(start_ea, end_ea)
+        for buffer in buffers:
+            print(f'At 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
 
         if self.show_comments:
-            candidates = filter(lambda x: x.metric_printable() > 0.7, buffers)
+            candidates = filter(lambda x: x.metric_printable() > 0.6, buffers)
             for candidate in candidates:
                 IdaCommentUtils.add_comment(candidate.write_instruction_ea, candidate.try_decode())
             IdaUiUtils.refresh_current_viewer()
-
-        for buffer in buffers:
-            print(hex(buffer.write_instruction_ea), hex(buffer.ea), buffer.metric_printable(), buffer)
 
         print('EmuIt: finish')
 
@@ -155,6 +164,17 @@ class EmuItPlugin(idaapi.plugin_t):
             return
 
         self.emu.smartcall(call_ea)
+
+    def action_emulate_calls_handler(self, ctx):
+        for idx in ctx.chooser_selection:
+            name, *_ = ida_kernwin.get_chooser_data(ctx.widget_title, idx)
+            ea = idaapi.get_name_ea(idaapi.BADADDR, name)
+            print(f'EmuIt: emulate calls of "{name}" (0x{ea:0X})')
+
+            xrefs = list(idautils.XrefsTo(ea, idaapi.XREF_FAR))
+            for xref in xrefs:
+                print(f'EmuIt: emulate call of "name" at 0x{xref.frm:0X}')
+                self.emu.smartcall(xref.frm)
 
     def action_reset_handler(self):
         self.emu.reset()
@@ -182,18 +202,19 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         pass
 
     def finish_populating_widget_popup(self, widget, popup):
-        if (idaapi.get_widget_type(widget) not in {idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE}):
-            return 0
-
-        tree = PLUGIN_NAME
         attach = idaapi.attach_action_to_popup
+        tree = PLUGIN_NAME
 
-        attach(widget, popup, ACTION_RUN, f'{tree}/')
-        attach(widget, popup, ACTION_RESET, f'{tree}/')
-        attach(widget, popup, ACTION_CALL, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
-        attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
+        widget_type = idaapi.get_widget_type(widget)
+        if widget_type in {idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE}:
+            attach(widget, popup, ACTION_RUN, f'{tree}/')
+            attach(widget, popup, ACTION_RESET, f'{tree}/')
+            attach(widget, popup, ACTION_CALL, f'{tree}/')
+            attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
+            attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
+            attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
+        elif widget_type == idaapi.BWN_FUNCS:
+            attach(widget, popup, ACTION_EMULATE_CALLS, '')
 
         return 0
 
@@ -204,7 +225,7 @@ def action_handler(callback):
             idaapi.action_handler_t.__init__(self)
 
         def activate(self, ctx):
-            callback()
+            callback(ctx)
             return 1
 
         def update(self, ctx):

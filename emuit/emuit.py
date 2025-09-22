@@ -149,7 +149,7 @@ class EmuIt(object):
             if (
                 i == 0
                 or addresses[i] != (addresses[i - 1] + 0x1)
-                or entries[ea] != entries[current_buffer_ea]
+                or abs(entries[ea] - entries[current_buffer_ea]) > 16
             ):
                 current_buffer_ea = ea
             chains[current_buffer_ea] += 1
