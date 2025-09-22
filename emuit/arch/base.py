@@ -15,6 +15,9 @@ class UnwindHandler():
     sp: int
     label: str
 
+    def __repr__(self):
+        return f"UnwindHandler(pc=0x{self.pc:0X}, sp=0x{self.sp:0X}, lable={self.label})"
+
 
 class EmuArch(object):
     UNWIND_MAX_ATTEMPTS = 5
@@ -100,7 +103,7 @@ class EmuArch(object):
                     print('Maximum count of attempts reached at', hex(handler.pc))
                     continue
 
-                print('Unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
+                print(f'Unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
                 self.regs.arch_pc = handler.pc
                 self.regs.arch_sp = handler.sp
                 return

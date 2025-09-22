@@ -96,8 +96,8 @@ class IdaUcUtils(object):
 class IdaCommentUtils():
     @classmethod
     def add_comment(cls, ea: int, text: str):
-        cls.add_disassembly_comment(ea, text)
-        cls.add_pseudocode_comment(ea, text)
+        cls.add_comment_disassembly(ea, text)
+        cls.add_comment_pseudocode(ea, text)
 
     @staticmethod
     def add_comment_disassembly(ea: int, text: str):
