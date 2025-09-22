@@ -127,35 +127,27 @@ class EmuItIda(EmuIt):
             insn = ida_ua.insn_t()
             inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
             if inslen and ida_idp.is_call_insn(insn): # NOTE: indirect_jump_insn() ?
-                # TODO: self.get_stack_args_size
-                self.arch.add_unwind_record(self.arch.regs.arch_pc + inslen)
+                call_target_ea = insn.ops[0].addr
+                purged = self.get_purged_bytes_number(call_target_ea)
+                self.arch.add_unwind_record(
+                    return_ea=self.arch.regs.arch_pc + inslen,
+                    sp_value=self.arch.regs.arch_sp + purged
+                )
 
-    # TODO: skip stack arguments
     @staticmethod
-    def get_stack_args_size(func_ea: int) -> int:
-        args_size = idc.get_func_attr(func_ea, idc.FUNCATTR_ARGSIZE)
-        if args_size != idaapi.BADADDR:
-            return args_size
-
+    def get_purged_bytes_number(func_ea: int) -> int:
         tif = ida_typeinf.tinfo_t()
-        if ida_nalt.get_tinfo(tif, func_ea):
-            if tif.is_funcptr():
-                data = ida_typeinf.ptr_type_data_t()
-                if not tif.get_ptr_details(data):
-                    return 0
-        
-                tif = data.obj_type
-            
-            func_data = ida_typeinf.func_type_data_t()
-            if tif.is_func() and tif.get_func_details(func_data):
-                total_size = 0
-                for i in range(func_data.size()):
-                    arg_type = func_data[i].type
-                    if arg_type:
-                        total_size += arg_type.get_size()
-                return total_size
+        if not ida_nalt.get_tinfo(tif, func_ea):
+            return 0
 
-        return 0
+        if tif.is_funcptr():
+            data = ida_typeinf.ptr_type_data_t()
+            if not tif.get_ptr_details(data):
+                return 0
+    
+            tif = data.obj_type
+        
+        return tif.calc_purged_bytes()
 
     def _hook_error(self, e):
         super()._hook_error(e)
@@ -177,29 +169,6 @@ class EmuItIda(EmuIt):
                 return ea
 
         return value
-
-    def _skip_external_call(self, call_ea: int):
-        insn = ida_ua.insn_t()
-        inslen = ida_ua.decode_insn(insn, call_ea)
-        if not inslen:
-            return
-
-        if ida_idp.is_call_insn(insn) and self._is_api_call(call_ea):
-            arg_addrs = idaapi.get_arg_addrs(call_ea)
-            arg_addrs = arg_addrs if arg_addrs is not None else []
-
-            print(f"Skip API call at 0x{call_ea:0X}...")
-            for arg_ea in arg_addrs:
-                arg_insn = ida_ua.insn_t()
-                if not ida_ua.decode_insn(arg_insn, arg_ea):
-                    continue
-
-                # TODO understand why argsize attribute
-                # do not working with api calls
-                if "push" in arg_insn.get_canon_mnem():
-                    self.arch.regs.arch_sp += self.arch.ptr_size
-
-            self.arch.regs.arch_pc += inslen
 
     @staticmethod
     def _is_api_call(call_ea: int):

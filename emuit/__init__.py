@@ -8,13 +8,13 @@ __all__ = [
 
 try:
     from .ida import EmuItIda
-    from .ida_utils import IdaCallSelection, IdaComments
+    from .ida_utils import IdaCommentUtils, IdaUiUtils
 
     __all__.extend(
         [
             EmuItIda,
-            IdaCallSelection,
-            IdaComments,
+            IdaCommentUtils,
+            IdaUiUtils,
         ]
     )
 except ImportError:

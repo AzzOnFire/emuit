@@ -67,19 +67,19 @@ class EmuArch(object):
         self.regs.arch_sp += self.ptr_size
         return int.from_bytes(data, byteorder=self.endian)
 
-    def add_unwind_record(self, return_ea: int):
+    def add_unwind_record(self, return_ea: int, sp_value: int):
         print('checking call stack')
         while len(self._unwind_stack):
-            pc, sp = self._unwind_stack[-1]
-            print('current SP:', hex(self.regs.arch_sp), 'stored SP:', hex(sp))
-            if self.regs.arch_sp < sp:
+            pc, record_sp = self._unwind_stack[-1]
+            print('tr SP:', hex(sp_value), 'stored SP:', hex(record_sp))
+            if sp_value < record_sp:
                 break
 
             self._unwind_stack.pop()
 
-        print('add PC:', hex(return_ea), 'SP:', hex(self.regs.arch_sp))
-        self._unwind_stack.append((return_ea, self.regs.arch_sp))
-
+        print('add PC:', hex(return_ea), 'SP:', hex(sp_value))
+        self._unwind_stack.append((return_ea, sp_value))
+    
     def unwind(self):
         print('Call stack', self._unwind_stack)
         while len(self._unwind_stack):

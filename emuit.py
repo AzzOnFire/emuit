@@ -1,6 +1,6 @@
 import sys
 
-from emuit import EmuItIda, IdaCallSelection, IdaComments
+from emuit import EmuItIda, IdaUiUtils, IdaCommentUtils 
 
 import idaapi
 import ida_kernwin
@@ -140,8 +140,8 @@ class EmuItPlugin(idaapi.plugin_t):
         if self.show_comments:
             candidates = filter(lambda x: x.metric_printable() > 0.7, buffers)
             for candidate in candidates:
-                IdaComments.add_comment(candidate.write_instruction_ea, candidate.try_decode())
-            IdaComments.refresh_current_viewer()
+                IdaCommentUtils.add_comment(candidate.write_instruction_ea, candidate.try_decode())
+            IdaUiUtils.refresh_current_viewer()
 
         for buffer in buffers:
             print(hex(buffer.write_instruction_ea), hex(buffer.ea), buffer.metric_printable(), buffer)
@@ -149,7 +149,7 @@ class EmuItPlugin(idaapi.plugin_t):
         print('EmuIt: finish')
 
     def action_emulate_call_handler(self):
-        call_ea = IdaCallSelection.get_selected_call()
+        call_ea = IdaUiUtils.get_selected_call()
         if not call_ea:
             print('EmuIt: no function selected')
             return
@@ -190,10 +190,10 @@ class EmuItUIHooks(idaapi.UI_Hooks):
 
         attach(widget, popup, ACTION_RUN, f'{tree}/')
         attach(widget, popup, ACTION_RESET, f'{tree}/')
+        attach(widget, popup, ACTION_CALL, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
         attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
-        attach(widget, popup, ACTION_CALL, f'{tree}/')
 
         return 0
 
