@@ -18,7 +18,6 @@ PLUGIN_HOTKEY = 'Shift+C'
 
 ACTION_RUN = 'EmuIt:run'
 ACTION_RESET = 'EmuIt:reset'
-ACTION_CALL = 'EmuIt:call'
 ACTION_EMULATE_CALLS = 'EmuIt:emulate_calls'
 ACTION_TOGGLE_RESET = 'EmuIt:toggle_reset'
 ACTION_TOGGLE_UNWIND = 'EmuIt:toggle_unwind'
@@ -91,20 +90,12 @@ class EmuItPlugin(idaapi.plugin_t):
             None,
         )
 
-        action_call = idaapi.action_desc_t(
-            ACTION_CALL,
-            'Emulate selected function',
-            action_handler(self.action_emulate_call_handler),
-            None,
-            'Emulate selected function in pseudocode/disassembly view'
-        )
-
-        action_call = idaapi.action_desc_t(
+        action_calls = idaapi.action_desc_t(
             ACTION_EMULATE_CALLS,
             'Emulate all function calls',
             action_handler(self.action_emulate_calls_handler),
             None,
-            'Emulate selected functions'
+            'Emulate selected function'
         )
 
         idaapi.register_action(action_run)
@@ -122,7 +113,7 @@ class EmuItPlugin(idaapi.plugin_t):
         idaapi.update_action_checkable(ACTION_TOGGLE_COMMENTS, True)
         idaapi.update_action_checked(ACTION_TOGGLE_COMMENTS, self.show_comments)
 
-        idaapi.register_action(action_call)
+        idaapi.register_action(action_calls)
 
         self.hooks = EmuItUIHooks()
         self.hooks.hook()
@@ -157,14 +148,6 @@ class EmuItPlugin(idaapi.plugin_t):
             print(f'At 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
 
         print('EmuIt: finish')
-
-    def action_emulate_call_handler(self, ctx):
-        call_ea = IdaUiUtils.get_selected_call()
-        if not call_ea:
-            print('EmuIt: no function selected')
-            return
-
-        self.emu.smartcall(call_ea)
 
     def action_emulate_calls_handler(self, ctx):
         for idx in ctx.chooser_selection:
@@ -209,14 +192,16 @@ class EmuItUIHooks(idaapi.UI_Hooks):
         widget_type = idaapi.get_widget_type(widget)
         if widget_type in {idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE}:
             attach(widget, popup, ACTION_RUN, f'{tree}/')
-            attach(widget, popup, ACTION_RESET, f'{tree}/')
-            attach(widget, popup, ACTION_CALL, f'{tree}/')
-            attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
-            attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
-            attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
         elif widget_type == idaapi.BWN_FUNCS:
-            attach(widget, popup, ACTION_EMULATE_CALLS, '')
+            attach(widget, popup, ACTION_EMULATE_CALLS, f'{tree}/')
+        
+        attach(widget, popup, ACTION_RESET, f'{tree}/')
+        attach(widget, popup, 'separator', f'{tree}/')
 
+        attach(widget, popup, ACTION_TOGGLE_RESET, f'{tree}/')
+        attach(widget, popup, ACTION_TOGGLE_UNWIND, f'{tree}/')
+        attach(widget, popup, ACTION_TOGGLE_COMMENTS, f'{tree}/')
+        
         return 0
 
 

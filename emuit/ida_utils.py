@@ -132,11 +132,10 @@ class IdaUiUtils():
     @staticmethod
     def get_selected_call_ea():
         ea = idc.get_screen_ea()
-        print(f"Selected address in disassembly: 0x{ea:x}")
 
         mnemonic = idc.print_insn_mnem(ea)
-        if mnemonic.lower() != "call":
-            print(f"Instruction at 0x{ea:x} is not a call: {mnemonic}")
+        if mnemonic.lower() == "call":
+            return ea
 
-        return ea
+        return None
 

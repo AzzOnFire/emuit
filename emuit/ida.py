@@ -81,19 +81,16 @@ class EmuItIda(EmuIt):
             return False
 
         seg_size = seg.end_ea - seg.start_ea
-        # TODO fix Exception to Unicorn specific exception
-        print("Try to map", hex(seg.start_ea), hex(seg_size))
         try:
             self.mem.map(seg.start_ea, seg_size)
         except uc.UcError as e:
+            print(f"Unable to map from IDB to unicorn: 0x{seg.start_ea:0X}")
             print(e)
 
         try:
-            print(
-                "Copy from database to unicorn memory", hex(seg.start_ea), hex(seg_size)
-            )
             self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, seg_size)
         except uc.UcError as e:
+            print(f"Unable to copy from IDB to unicorn: 0x{seg.start_ea:0X}")
             print(e)
             return False
 

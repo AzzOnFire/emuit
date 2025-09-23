@@ -79,22 +79,22 @@ class EmuArch(object):
         return int.from_bytes(data, byteorder=self.endian)
 
     def add_unwind_record(self, return_ea: int, sp_value: int, label: str = ''):
-        print('checking call stack')
         while len(self._unwind_stack):
+            # Remove previous unwind handlers
             handler = self._unwind_stack[-1]
-            print('tr SP:', hex(sp_value), 'stored SP:', hex(handler.sp))
             if sp_value < handler.sp:
                 break
 
             self._unwind_stack.pop()
 
-        print('add PC:', hex(return_ea), 'SP:', hex(sp_value))
-        self._unwind_stack.append(UnwindHandler(return_ea, sp_value, label))
+        new_handler = UnwindHandler(return_ea, sp_value, label)
+        print('Add unwind handler:', new_handler)
+        self._unwind_stack.append(new_handler)
     
     def unwind(self):
         while len(self._unwind_stack):
             handler = self._unwind_stack.pop()
-            print('Next unwind handler', handler)
+            print('Next handler:', handler)
 
             if self.regs.arch_sp < handler.sp:
                 self._unwind_stats[handler.pc] += 1
