@@ -133,7 +133,7 @@ class EmuItPlugin(idaapi.plugin_t):
 
         return idaapi.PLUGIN_KEEP
 
-    def action_run_handler(self):
+    def action_run_handler(self, ctx):
         selection, start_ea, end_ea = ida_kernwin.read_range_selection(None)
 
         if not selection:
@@ -157,7 +157,7 @@ class EmuItPlugin(idaapi.plugin_t):
 
         print('EmuIt: finish')
 
-    def action_emulate_call_handler(self):
+    def action_emulate_call_handler(self, ctx):
         call_ea = IdaUiUtils.get_selected_call()
         if not call_ea:
             print('EmuIt: no function selected')
@@ -176,16 +176,16 @@ class EmuItPlugin(idaapi.plugin_t):
                 print(f'EmuIt: emulate call of "name" at 0x{xref.frm:0X}')
                 self.emu.smartcall(xref.frm)
 
-    def action_reset_handler(self):
+    def action_reset_handler(self, ctx):
         self.emu.reset()
 
-    def action_toggle_reset_handler(self):
+    def action_toggle_reset_handler(self, ctx):
         self.reset_every_run = bool(not self.reset_every_run)
 
-    def action_toggle_unwind_handler(self):
+    def action_toggle_unwind_handler(self, ctx):
         self.emu.enable_unwind = bool(not self.emu.enable_unwind)
 
-    def action_toggle_comments_handler(self):
+    def action_toggle_comments_handler(self, ctx):
         self.show_comments = bool(not self.show_comments)
 
     def term(self):
