@@ -34,12 +34,7 @@ class EmuArchX86(EmuArch):
 
         return self.stdcall(start_ea, end_ea, *stack_args)
 
-    def fastcall(
-        self,
-        start_ea: int,
-        end_ea: int,
-        *args
-    ):
+    def fastcall(self, start_ea: int, end_ea: int, *args):
         if len(args) > 0:
             self.regs["RCX"], *args = args
         if len(args) > 0:

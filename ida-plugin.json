@@ -7,7 +7,7 @@
       "logoPath": "images/logo.png",
       "idaVersions": ">=8.3",
       "description" : "Easy-to-use IDA PRO emulator plugin based on unicorn",
-      "version": "0.6.5",
+      "version": "0.8.0",
       "license": "GPL-3.0",
       "urls": {
         "repository": "https://github.com/AzzOnFire/yarka"

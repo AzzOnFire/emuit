@@ -23,13 +23,6 @@ class EmuMemory(object):
         return ea
 
     def map(self, address: int | None = None, size: int = 0x100) -> int:
-        # import traceback
-        # for line in traceback.format_stack():
-        #     print(line.strip())
-        # print('Total map:')
-        # for i, (start, end) in enumerate(self.mapping):
-        #    print('-', hex(start), hex(end))
-
         size = self.__align_high(size)
         if address is None:
             address = self.find_free_space(size)
@@ -42,7 +35,6 @@ class EmuMemory(object):
         _start, _end = address, address + size
 
         for i, (start, end) in enumerate(self.mapping):
-            # print(f'Compare 0x{_start:0X}-0x{_end:0X} against 0x{start:0X}-0x{end:0X}')
             if (
                 (start <= _start and _end <= end)
                 or (start <= _start < end)

@@ -13,7 +13,7 @@ assert (sys.version_info >= (3, 8)), "ERROR: EmuIt requires Python 3.8"
 
 
 PLUGIN_NAME = 'EmuIt'
-VERSION = '0.6.5'
+VERSION = '0.8.0'
 PLUGIN_HOTKEY = 'Shift+C'
 
 ACTION_RUN = 'EmuIt:run'
@@ -144,16 +144,17 @@ class EmuItPlugin(idaapi.plugin_t):
         if self.reset_every_run:
             self.emu.reset()
 
-        print(f'EmuIt: running {start_ea:08X} - {end_ea:08X}')
         buffers = self.emu.run(start_ea, end_ea)
-        for buffer in buffers:
-            print(f'At 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
 
         if self.show_comments:
             candidates = filter(lambda x: x.metric_printable() > 0.6, buffers)
             for candidate in candidates:
+                print(f'Add comment to 0x{candidate.write_instruction_ea:0X}')
                 IdaCommentUtils.add_comment(candidate.write_instruction_ea, candidate.try_decode())
             IdaUiUtils.refresh_current_viewer()
+
+        for buffer in buffers:
+            print(f'At 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
 
         print('EmuIt: finish')
 
