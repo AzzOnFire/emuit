@@ -153,7 +153,6 @@ class EmuItIda(EmuIt):
     def _hook_error(self, e):
         super()._hook_error(e)
 
-        print('Error: ', e)
         print('Last instructions trace:')
         for insn_ea in self._insn_trace:
             flags = idaapi.GENDSM_REMOVE_TAGS

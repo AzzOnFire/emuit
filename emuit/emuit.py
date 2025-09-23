@@ -84,7 +84,7 @@ class EmuIt(object):
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
         if len(self.arch._unwind_stack):
-            handler = self.arch._unwind_stack[0]    # pass from a function
+            handler = self.arch._unwind_stack[0]  # pass from a function
             source = handler.pc
         else:
             source = self.arch.regs.arch_pc
@@ -107,7 +107,7 @@ class EmuIt(object):
         self._insn_trace.append(address)
 
     def _hook_error(self, e):
-        print("EmuIt Error:", e)
+        print("EmuIt: exception", e)
 
     def run(self, start_ea: int, end_ea: int) -> list[Buffer]:
         user_data: dict[int, int] = {}
@@ -121,13 +121,11 @@ class EmuIt(object):
         self.arch.engine.hook_add(
             uc.UC_HOOK_MEM_FETCH_UNMAPPED, self._hook_mem_fetch_unmapped
         )
-        self.arch.engine.hook_add(
-            uc.UC_HOOK_CODE, self._hook_code, aux1=uc.x86_const.UC_X86_INS_CALL
-        )
+        self.arch.engine.hook_add(uc.UC_HOOK_CODE, self._hook_code)
 
         for _ in range(16):
             try:
-                print("Start emulation from", hex(start_ea), "to", hex(end_ea))
+                print("Emuit: start emulation from", hex(start_ea), "to", hex(end_ea))
                 self.arch.engine.emu_start(start_ea, end_ea)
                 break
             except uc.UcError as e:
@@ -135,7 +133,6 @@ class EmuIt(object):
                     break
                 else:
                     start_ea = self.arch.regs.arch_pc
-                    print("Unwinding to", hex(start_ea))
 
         return self._post_processing(user_data)
 
