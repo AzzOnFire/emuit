@@ -50,8 +50,11 @@ class EmuMemory(object):
                         f"already allocated with 0x{start:0X}-0x{end:0X}"
                     )
 
+        temp = {}
         for i in to_delete:
-            self.mapping.pop(i)
+            start, end = self.mapping.pop(i)
+            temp[start] = self.read(start, end - start)
+            self._engine.mem_unmap(start, end - start)
 
         bisect.insort(self.mapping, (_start, _end))
 
@@ -62,6 +65,9 @@ class EmuMemory(object):
             for start, end in self.mapping:
                 print(hex(start), "-", hex(end))
             raise e
+
+        for (start, end), data in temp.items():
+            self.write(start, data)
 
         return address
 
