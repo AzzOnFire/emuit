@@ -10,8 +10,7 @@ class EmuMemory(object):
         self._ptr_size = ptr_size
         self._engine: uc.Uc = engine
         self._engine.ctl_get_mode()
-
-        self.heap_min = 0x10000000  # after program segments
+        self.heap_min = 0x30000000  # after program segments
         self.heap_max = 0x70000000  # before system libraries
 
     def map_anywhere(self, size: int) -> int:
