@@ -44,7 +44,15 @@ class EmuMemory(object):
                 )
 
         bisect.insort(self.mapping, (_start, _end))
-        self._engine.mem_map(address, size)
+
+        try:
+            self._engine.mem_map(address, size)
+        except Exception as e:
+            print('Mapping error! Print map')
+            for start, end in self.mapping:
+                print(hex(start), '-', hex(end))
+            raise e
+
         return address
 
     def query(self, address: int) -> tuple[int, int] | None:
