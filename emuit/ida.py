@@ -69,47 +69,47 @@ class EmuItIda(EmuIt):
             try:
                 self.run(arg_ea, arg_ea + length)
             except Exception:
-                print("Argument {arg_ea:0X} emulation error")
+                self.log.error(f"Argument {arg_ea:0X} emulation error")
 
         call_length = ida_ua.decode_insn(ida_ua.insn_t(), func_call_ea)
         return self.run(func_call_ea, func_call_ea + call_length)
 
     def _map_from_ida(self, address) -> bool:
-        self.logger('try to map segment from ida')
+        self.log.info("try to map segment from ida")
         n = ida_segment.get_segm_num(address)
         seg = ida_segment.getnseg(n)
         if not seg:
             return False
 
         seg_name = ida_segment.get_segm_name(seg)
-        self.logger(f'found corresponding segment: {seg_name}')
+        self.log.info(f"found corresponding segment: {seg_name}")
         seg_size = seg.end_ea - seg.start_ea
         try:
             self.mem.map(seg.start_ea, seg_size)
         except uc.UcError as e:
-            self.logger(f'unable to map from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}')
+            self.log.error(f"unable to map from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
 
         try:
             self.mem[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, seg_size)
         except uc.UcError as e:
-            self.logger(f'unable to copy from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}')
+            self.log.error(f"unable to copy from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
             return False
 
         return True
 
     def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
-        self.logger(f'unmapped write at 0x{address:0X}')
+        self.log.warning(f"unmapped write at 0x{address:0X}")
         if not self._map_from_ida(address):
             self.mem.map(address, 0x1000)
 
         return self._hook_mem_write(user_data, address, size)
 
     def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
-        self.logger(f'unmapped fetch at 0x{address:0X}')
+        self.log.warning(f"unmapped fetch at 0x{address:0X}")
         return self._map_from_ida(address)
 
     def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
-        self.logger(f'unmapped read at 0x{address:0X}')
+        self.log.warning(f"unmapped read at 0x{address:0X}")
         return self._map_from_ida(address)
 
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
@@ -146,19 +146,19 @@ class EmuItIda(EmuIt):
             data = ida_typeinf.ptr_type_data_t()
             if not tif.get_ptr_details(data):
                 return 0
-    
+
             tif = data.obj_type
-        
+
         return tif.calc_purged_bytes()
 
     def _hook_error(self, e):
         super()._hook_error(e)
 
-        self.logger('last instructions trace:')
+        self.log.debug("last instructions trace:")
         for insn_ea in self._insn_trace:
             flags = idaapi.GENDSM_REMOVE_TAGS
             line = idaapi.generate_disasm_line(insn_ea, flags)
-            self.logger(f'0x{insn_ea:0X}: {line}')
+            self.log.debug(f"0x{insn_ea:0X}: {line}")
 
         self.arch.unwind()
         return True

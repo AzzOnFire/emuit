@@ -30,27 +30,37 @@ class EmuMemory(object):
 
         return self._insert_block(address, size)
 
-    def _insert_block(self, address: int, size: int):
+    def _insert_block(self, address: int, size: int, merge: bool = True):
         _start, _end = address, address + size
 
+        to_delete = []
         for i, (start, end) in enumerate(self.mapping):
             if (
                 (start <= _start and _end <= end)
                 or (start <= _start < end)
                 or (start < _end <= end)
             ):
-                raise ValueError(
-                    f"Can't map 0x{_start:0X}-0x{_end:0X}: already allocated with 0x{start:0X}-0x{end:0X}"
-                )
+                if merge:
+                    _start = min(start, _start)
+                    _end = max(end, _end)
+                    to_delete.append(i)
+                else:
+                    raise ValueError(
+                        f"Can't map 0x{_start:0X}-0x{_end:0X}: "
+                        f"already allocated with 0x{start:0X}-0x{end:0X}"
+                    )
+
+        for i in to_delete:
+            self.mapping.pop(i)
 
         bisect.insort(self.mapping, (_start, _end))
 
         try:
             self._engine.mem_map(address, size)
         except Exception as e:
-            print('Mapping error! Print map')
+            print("Mapping error! Print map")
             for start, end in self.mapping:
-                print(hex(start), '-', hex(end))
+                print(hex(start), "-", hex(end))
             raise e
 
         return address

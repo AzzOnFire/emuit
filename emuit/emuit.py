@@ -10,16 +10,18 @@ from .utils import Buffer
 
 
 class EmuIt(object):
+    RUN_ATTEMPTS = 16
+
     def __init__(self, uc_architecture: int, uc_mode: int):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
         self._insn_trace: deque[int] = deque(maxlen=10)
 
-        self._logger = self._init_logger()
+        self._log = self._init_logger()
         self._init_stack()
         self.reset()
 
-    def _init_logger(self):
+    def _init_logger(self) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
         handler = logging.StreamHandler()
@@ -30,13 +32,15 @@ class EmuIt(object):
 
     def _init_stack(self, size: int = 1 * 1024 * 1024):
         base = self._mem.map_anywhere(size)
-        self.logger.info(f'stack allocated at 0x{base:0X}')
+        self.log.debug(f'stack allocated at 0x{base:0X}')
         self._arch.regs.arch_sp = base + (size // 2) & ~0xFF
 
-    def logger(self):
-        return self._logger
+    @property
+    def log(self) -> logging.Logger:
+        return self._log
 
     def reset(self):
+        self.log.info('emulator was reset')
         if self._uc_architecture == uc.unicorn_const.UC_ARCH_X86:
             self._arch = EmuArchX86(self, self._uc_mode)
         else:
@@ -124,7 +128,7 @@ class EmuIt(object):
         self._insn_trace.append(address)
 
     def _hook_error(self, e):
-        self.logger(f'handle exception {e}')
+        self.log.error(f'handle exception {e}')
 
     def run(self, start_ea: int, end_ea: int) -> list[Buffer]:
         user_data: dict[int, int] = {}
@@ -140,9 +144,9 @@ class EmuIt(object):
         )
         self.arch.engine.hook_add(uc.UC_HOOK_CODE, self._hook_code)
 
-        for _ in range(16):
+        for _ in range(self.RUN_ATTEMPTS):
             try:
-                self.logger(f'start emulation from 0x{start_ea:0X} to 0x{end_ea:0X}')
+                self.log.info(f'start emulation from 0x{start_ea:0X} to 0x{end_ea:0X}')
                 self.arch.engine.emu_start(start_ea, end_ea)
                 break
             except uc.UcError as e:
