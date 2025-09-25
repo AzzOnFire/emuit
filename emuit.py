@@ -41,88 +41,47 @@ class EmuItPlugin(idaapi.plugin_t):
         print(' ' * 52, '\n', '=' * 52)
 
     def init(self):
-        #try:
-        self.emu = EmuItIda()
-        #except Exception as e:
-        #    print('EmuIt: an error occurred during initialization:', str(e))
-        #    return idaapi.PLUGIN_SKIP
+        try:
+            self.emu = EmuItIda()
+        except Exception as e:
+            print('EmuIt: an error occurred during initialization:', str(e))
+            return idaapi.PLUGIN_SKIP
 
         self.reset_every_run = True
         self.show_comments = True
 
-        action_run = idaapi.action_desc_t(
-            ACTION_RUN,
-            'Run',
-            action_handler(self.action_run_handler),
-            PLUGIN_HOTKEY,
-            'Run EmuIt on selection'
-        )
-
-        action_reset = idaapi.action_desc_t(
-            ACTION_RESET,
-            'Reset state',
-            action_handler(self.action_reset_handler),
-            None,
-            'Reset EmuIt state now'
-        )
-
-        action_toggle_reset = idaapi.action_desc_t(
-            ACTION_TOGGLE_RESET,
-            'Reset on every run',
-            action_handler(self.action_toggle_reset_handler),
-            None,
-            'Reset EmuIt state on every run'
-        )
-
-        action_toggle_unwind = idaapi.action_desc_t(
-            ACTION_TOGGLE_UNWIND,
-            'Unwind on error',
-            action_handler(self.action_toggle_unwind_handler),
-            None,
-            None,
-        )
-
-        action_toggle_comments = idaapi.action_desc_t(
-            ACTION_TOGGLE_COMMENTS,
-            'Show comments',
-            action_handler(self.action_toggle_comments_handler),
-            None,
-            None,
-        )
-
-        action_calls = idaapi.action_desc_t(
-            ACTION_EMULATE_CALLS,
-            'Emulate all function calls',
-            action_handler(self.action_emulate_calls_handler),
-            None,
-            'Emulate selected function'
-        )
-
-        idaapi.register_action(action_run)
-        idaapi.register_action(action_reset)
-
-        idaapi.register_action(action_toggle_reset)
+        self.register_action(ACTION_RUN, 'Run', self.action_run_handler, hotkey=PLUGIN_HOTKEY)
+        self.register_action(ACTION_RESET, 'Reset state', self.action_reset_handler)
+        self.register_action(ACTION_TOGGLE_RESET, 'Reset on every run', self.action_toggle_reset_handler)
         idaapi.update_action_checkable(ACTION_TOGGLE_RESET, True)
         idaapi.update_action_checked(ACTION_TOGGLE_RESET, self.reset_every_run)
-
-        idaapi.register_action(action_toggle_unwind)
+        self.register_action(ACTION_TOGGLE_UNWIND, 'Unwind on error', self.action_toggle_unwind_handler)
         idaapi.update_action_checkable(ACTION_TOGGLE_UNWIND, True)
         idaapi.update_action_checked(ACTION_TOGGLE_UNWIND, self.emu.enable_unwind)
-
-        idaapi.register_action(action_toggle_comments)
+        self.register_action(ACTION_TOGGLE_COMMENTS, 'Show comments', self.action_toggle_comments_handler)
         idaapi.update_action_checkable(ACTION_TOGGLE_COMMENTS, True)
         idaapi.update_action_checked(ACTION_TOGGLE_COMMENTS, self.show_comments)
-
-        idaapi.register_action(action_calls)
+        self.register_action(ACTION_EMULATE_CALLS, 'Emulate all function calls', self.action_emulate_calls_handler)
 
         self.hooks = EmuItUIHooks()
         self.hooks.hook()
 
         self.banner()
-        print(f'EmuIt {VERSION} started.')
-        print(f'EmuIt run shortcut key is {PLUGIN_HOTKEY}.')
+        print(f'EmuIt: started. Version {VERSION}')
+        print(f'EmuIt: shortcut key is {PLUGIN_HOTKEY}')
 
         return idaapi.PLUGIN_KEEP
+
+    def register_action(self, action, label, handler, hotkey = None, description = None):
+        idaapi.register_action(
+            idaapi.action_desc_t(
+                action,
+                label,
+                action_handler(handler),
+                hotkey,
+                description,
+            )
+        )
 
     def action_run_handler(self, ctx):
         selection, start_ea, end_ea = ida_kernwin.read_range_selection(None)
@@ -140,24 +99,24 @@ class EmuItPlugin(idaapi.plugin_t):
         if self.show_comments:
             candidates = filter(lambda x: x.metric_printable() > 0.6, buffers)
             for candidate in candidates:
-                print(f'Add comment to 0x{candidate.write_instruction_ea:0X}')
+                self.emu.log.info(f'add comment to 0x{candidate.write_instruction_ea:0X}')
                 IdaCommentUtils.add_comment(candidate.write_instruction_ea, candidate.try_decode())
             IdaUiUtils.refresh_current_viewer()
 
         for buffer in buffers:
-            print(f'At 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
+            self.emu.log.info(f'at 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
 
-        print('EmuIt: finish')
+        self.emu.log.info('finish')
 
     def action_emulate_calls_handler(self, ctx):
         for idx in ctx.chooser_selection:
             name, *_ = ida_kernwin.get_chooser_data(ctx.widget_title, idx)
             ea = idaapi.get_name_ea(idaapi.BADADDR, name)
-            print(f'EmuIt: emulate calls of "{name}" (0x{ea:0X})')
+            self.emu.log.info(f'emulate calls of "{name}" (0x{ea:0X})')
 
             xrefs = list(idautils.XrefsTo(ea, idaapi.XREF_FAR))
             for xref in xrefs:
-                print(f'EmuIt: emulate call of "name" at 0x{xref.frm:0X}')
+                self.emu.log.info(f'emulate call of "{name}" at 0x{xref.frm:0X}')
                 self.emu.smartcall(xref.frm)
 
     def action_reset_handler(self, ctx):
@@ -175,10 +134,10 @@ class EmuItPlugin(idaapi.plugin_t):
     def term(self):
         if hasattr(self, 'hooks'):
             self.hooks.unhook()
-        print(f'EmuIt {VERSION} terminated.')
+        print('EmuIt: terminated')
 
     def run(self, arg):
-        print('call EmuIt from context menu (right click) in disassembly')
+        print('EmuIt: call from context menu (right click) in pseudocode/disassembly view')
 
 
 class EmuItUIHooks(idaapi.UI_Hooks):

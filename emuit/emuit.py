@@ -23,13 +23,20 @@ class EmuIt(object):
     def _init_logger(self) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
-        if not logger.handlers:
-            ch = logging.StreamHandler()
-            logger.addHandler(ch)
 
-        formatter = logging.Formatter('[EmuIt] %(message)s')
-        for handler in logger.handlers:
-            handler.setFormatter(formatter)
+        old_factory = logging.getLogRecordFactory()
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            record.current_pc = hex(self.arch.regs.arch_pc)
+            return record
+        logging.setLogRecordFactory(record_factory)
+
+        # TODO: add [PC:%(current_pc)s] only for debug-warning-error messages
+        formatter = logging.Formatter('[EmuIt] %(message)s')  
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        
         logger.propagate = False
 
         return logger
@@ -44,7 +51,6 @@ class EmuIt(object):
         return self._log
 
     def reset(self):
-        self.log.info('emulator was reset')
         if self._uc_architecture == uc.unicorn_const.UC_ARCH_X86:
             self._arch = EmuArchX86(self, self._uc_mode)
         else:
@@ -52,6 +58,7 @@ class EmuIt(object):
 
         self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.ptr_size)
         self._init_stack()
+        self.log.info('emulator was reset')
 
     @classmethod
     def create(
