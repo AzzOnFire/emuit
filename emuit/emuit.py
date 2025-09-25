@@ -18,16 +18,20 @@ class EmuIt(object):
         self._insn_trace: deque[int] = deque(maxlen=10)
 
         self._log = self._init_logger()
-        self._init_stack()
         self.reset()
 
     def _init_logger(self) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
+        if not logger.handlers:
+            ch = logging.StreamHandler()
+            logger.addHandler(ch)
+
         formatter = logging.Formatter('[EmuIt] %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        for handler in logger.handlers:
+            handler.setFormatter(formatter)
+        logger.propagate = False
+
         return logger
 
     def _init_stack(self, size: int = 1 * 1024 * 1024):
@@ -47,6 +51,7 @@ class EmuIt(object):
             self._arch = EmuArch(self, self._uc_architecture, self._uc_mode)
 
         self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.ptr_size)
+        self._init_stack()
 
     @classmethod
     def create(
@@ -150,7 +155,8 @@ class EmuIt(object):
                 self.arch.engine.emu_start(start_ea, end_ea)
                 break
             except uc.UcError as e:
-                if not self._hook_error(e):
+                prev_ea = self.arch.regs.arch_pc
+                if not self._hook_error(e) or prev_ea == self.arch.regs.arch_pc:
                     break
                 else:
                     start_ea = self.arch.regs.arch_pc

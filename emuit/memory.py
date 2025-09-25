@@ -22,13 +22,15 @@ class EmuMemory(object):
         return ea
 
     def map(self, address: int | None = None, size: int = 0x100) -> int:
-        size = self.__align_high(size)
         if address is None:
-            address = self.find_free_space(size)
+            aligned_size = self.__align_high(size)
+            address = self.find_free_space(aligned_size)
+        else:
+            end_ea = self.__align_high(address + size)
+            address = self.__align_low(address)
+            aligned_size = self.__align_high(end_ea - address)
 
-        address = self.__align_low(address)
-
-        return self._insert_block(address, size)
+        return self._insert_block(address, aligned_size)
 
     def _insert_block(self, address: int, size: int, merge: bool = True):
         _start, _end = address, address + size
@@ -100,8 +102,14 @@ class EmuMemory(object):
         if isinstance(data, int):
             data = data.to_bytes(self._ptr_size, byteorder="little")
 
-        return self._engine.mem_write(int(address), data)
-
+        try:
+            return self._engine.mem_write(int(address), data)
+        except Exception as e:
+            print("Mapping error! Print map")
+            for start, end in self.mapping:
+                print(hex(start), "-", hex(end))
+            raise e
+        
     def read(self, address: Union[str, int], size: int) -> bytes:
         return bytes(self._engine.mem_read(address, size))
 
