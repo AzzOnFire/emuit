@@ -16,7 +16,7 @@ class UnwindHandler():
     label: str
 
     def __repr__(self):
-        return f"UnwindHandler(pc=0x{self.pc:0X}, sp=0x{self.sp:0X}, lable={self.label})"
+        return f"UnwindHandler(pc=0x{self.pc:0X}, sp=0x{self.sp:0X}, label={self.label})"
 
 
 class EmuArch(object):
