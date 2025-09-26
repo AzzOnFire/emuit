@@ -1,4 +1,5 @@
 import sys
+import traceback
 
 import idaapi
 import ida_kernwin
@@ -44,7 +45,8 @@ class EmuItPlugin(idaapi.plugin_t):
         try:
             self.emu = EmuItIda()
         except Exception as e:
-            print('EmuIt: an error occurred during initialization:', str(e))
+            traceback_str = traceback.format_exc()  # Capture the traceback as a string
+            print('EmuIt: an error occurred during initialization:', traceback_str)
             return idaapi.PLUGIN_SKIP
 
         self.reset_every_run = True

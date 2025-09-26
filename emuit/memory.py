@@ -1,17 +1,25 @@
 import bisect
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
-import unicorn as uc
+if TYPE_CHECKING:
+    from emuit import EmuIt
 
 
 class EmuMemory(object):
-    def __init__(self, engine: uc.Uc, ptr_size: int = 4):
+    def __init__(self, emu: "EmuIt"):
         self.mapping: list[tuple[int, int]] = []
-        self._ptr_size = ptr_size
-        self._engine: uc.Uc = engine
-        self._engine.ctl_get_mode()
+        self._emu = emu
+        self._ptr_size = emu.arch.ptr_size
         self.heap_min = 0x30000000  # after program segments
         self.heap_max = 0x70000000  # before system libraries
+
+    @property
+    def _engine(self):
+        return self._emu.arch.engine
+
+    @property
+    def log(self):
+        return self._emu.log
 
     def map_anywhere(self, size: int) -> int:
         return self.map(None, size)
@@ -63,9 +71,9 @@ class EmuMemory(object):
         try:
             self._engine.mem_map(address, size)
         except Exception as e:
-            print("Mapping error! Print map")
+            self.log.debug('mapping error, print current memory map:')
             for start, end in self.mapping:
-                print(hex(start), "-", hex(end))
+                self.log.debug(f'0x{start:0X} - 0x{end:0X}')
             raise e
 
         for (start, end), data in temp.items():
@@ -105,9 +113,9 @@ class EmuMemory(object):
         try:
             return self._engine.mem_write(int(address), data)
         except Exception as e:
-            print("Mapping error! Print map")
+            self.log.debug('memory write error, print current memory map:')
             for start, end in self.mapping:
-                print(hex(start), "-", hex(end))
+                self.log.debug(f'0x{start:0X} - 0x{end:0X}')
             raise e
         
     def read(self, address: Union[str, int], size: int) -> bytes:

@@ -2,6 +2,7 @@ import idaapi
 import ida_ida
 import idc
 import ida_kernwin
+import ida_hexrays
 
 import unicorn as uc
 
@@ -103,19 +104,43 @@ class IdaCommentUtils():
     def add_comment_disassembly(ea: int, text: str):
         idc.set_cmt(ea, text, 0)
 
+    # many thanks to:
+    # https://github.com/mrexodia/ida-pro-mcp/blob/main/src/ida_pro_mcp/mcp-plugin.py#L1153
     @staticmethod
     def add_comment_pseudocode(ea: int, text: str):
-        cfunc = idaapi.decompile(ea)
+        error = ida_hexrays.hexrays_failure_t()
+        cfunc = ida_hexrays.decompile_func(ea, error, ida_hexrays.DECOMP_WARNINGS)
         if not cfunc:
-            print("Failed to decompile function.")
             return
+        
+        if ea == cfunc.entry_ea:
+            idc.set_func_cmt(ea, text, True)
+            cfunc.refresh_func_ctext()
+        
+        eamap = cfunc.get_eamap()
+        if ea not in eamap:
+            print(f"Failed to set decompiler comment at {hex(ea)}")
+            return
+        
+        nearest_ea = eamap[ea][0].ea
 
+        # Remove existing orphan comments
+        if cfunc.has_orphan_cmts():
+            cfunc.del_orphan_cmts()
+            cfunc.save_user_cmts()
+
+        # Set the comment by trying all possible item types
         tl = idaapi.treeloc_t()
-        tl.ea = ea
-        tl.itp = idaapi.ITP_SEMI  # comment after a semicolon
-
-        cfunc.set_user_cmt(tl, text)
-        cfunc.save_user_cmts()
+        tl.ea = nearest_ea
+        for itp in range(idaapi.ITP_SEMI, idaapi.ITP_COLON):
+            tl.itp = itp
+            cfunc.set_user_cmt(tl, text)
+            cfunc.save_user_cmts()
+            cfunc.refresh_func_ctext()
+            if not cfunc.has_orphan_cmts():
+                return
+            cfunc.del_orphan_cmts()
+            cfunc.save_user_cmts()
 
 
 class IdaUiUtils():

@@ -30,7 +30,11 @@ class EmuArch(object):
         self._regs: EmuRegs = EmuRegs(self)
         self._unwind_stats: Counter[int] = Counter()
         self._unwind_stack: deque[UnwindHandler] = deque()
-    
+
+    @property
+    def log(self):
+        return self._emu.log
+
     @property
     def uc_architecture(self):
         return self._uc_architecture
@@ -88,21 +92,26 @@ class EmuArch(object):
             self._unwind_stack.pop()
 
         new_handler = UnwindHandler(return_ea, sp_value, label)
-        print('Add unwind handler:', new_handler)
+        self.log.debug(f'add handler: {new_handler}')
         self._unwind_stack.append(new_handler)
     
     def unwind(self):
         while len(self._unwind_stack):
             handler = self._unwind_stack.pop()
-            print('Next handler:', handler)
+            self.log.debug(f'next handler: {handler}')
 
             if self.regs.arch_sp < handler.sp:
                 self._unwind_stats[handler.pc] += 1
                 if self._unwind_stats[handler.pc] > self.UNWIND_MAX_ATTEMPTS:
-                    print('Maximum count of attempts reached at', hex(handler.pc))
+                    self.log.warning(f'maximum count of unwind attempts reached ({self.UNWIND_MAX_ATTEMPTS})')
                     continue
 
-                print(f'Unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
+                self.log.info(f'unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
                 self.regs.arch_pc = handler.pc
                 self.regs.arch_sp = handler.sp
                 return
+
+    def stack_init(self, size: int = 1 * 1024 * 1024):
+        base = self._emu.mem.map_anywhere(size)
+        self.log.debug(f'stack allocated at 0x{base:0X}')
+        self.regs.arch_sp = base + (size // 2) & ~0xFF

@@ -6,6 +6,7 @@ import unicorn as uc
 
 from .arch import EmuArch, EmuArchX86
 from .memory import EmuMemory
+from .log import create_logger
 from .utils import Buffer
 
 
@@ -16,48 +17,25 @@ class EmuIt(object):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
         self._insn_trace: deque[int] = deque(maxlen=10)
-
-        self._log = self._init_logger()
+        self._log = create_logger(self)
         self.reset()
-
-    def _init_logger(self) -> logging.Logger:
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.INFO)
-
-        old_factory = logging.getLogRecordFactory()
-        def record_factory(*args, **kwargs):
-            record = old_factory(*args, **kwargs)
-            record.current_pc = hex(self.arch.regs.arch_pc)
-            return record
-        logging.setLogRecordFactory(record_factory)
-
-        # TODO: add [PC:%(current_pc)s] only for debug-warning-error messages
-        formatter = logging.Formatter('[EmuIt] %(message)s')  
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        
-        logger.propagate = False
-
-        return logger
-
-    def _init_stack(self, size: int = 1 * 1024 * 1024):
-        base = self._mem.map_anywhere(size)
-        self.log.debug(f'stack allocated at 0x{base:0X}')
-        self._arch.regs.arch_sp = base + (size // 2) & ~0xFF
 
     @property
     def log(self) -> logging.Logger:
         return self._log
 
     def reset(self):
+        # 1. initialize Arch module
         if self._uc_architecture == uc.unicorn_const.UC_ARCH_X86:
             self._arch = EmuArchX86(self, self._uc_mode)
         else:
             self._arch = EmuArch(self, self._uc_architecture, self._uc_mode)
 
-        self._mem = EmuMemory(self.arch.engine, ptr_size=self.arch.ptr_size)
-        self._init_stack()
+        # 2. initialize Memory (depends on Arch)
+        self._mem = EmuMemory(self)
+
+        # 3. initialize stack (depends on Memory)
+        self._arch.stack_init()
         self.log.info('emulator was reset')
 
     @classmethod
