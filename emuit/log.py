@@ -6,19 +6,19 @@ if TYPE_CHECKING:
 
 
 class LevelBasedFormatter(logging.Formatter):
-    FMT_INFO = "[%(name)s] %(message)s (%(name)s)"
-    FMT_DEBUG = "[%(name)s][%(levelname)s][PC:%(current_pc)s] %(message)s (%(funcName)s)"
+    FMT_INFO = "[%(name)s] %(message)s"
+    FMT_ERROR = "[%(name)s] %(message)s (PC:%(current_pc)s)"
 
     def __init__(self, datefmt=None):
         super().__init__()
         self._fmt_info = logging.Formatter(self.FMT_INFO)
-        self._fmt_debug = logging.Formatter(self.FMT_DEBUG)
+        self._fmt_error = logging.Formatter(self.FMT_ERROR)
     
     def format(self, record):
-        if record.levelno == logging.INFO:
+        if record.levelno in {logging.INFO, logging.DEBUG}:
             return self._fmt_info.format(record)
 
-        return self._fmt_debug.format(record)
+        return self._fmt_error.format(record)
 
 
 def create_logger(emu: "EmuIt", level = logging.DEBUG):
@@ -28,7 +28,7 @@ def create_logger(emu: "EmuIt", level = logging.DEBUG):
     old_factory = logging.getLogRecordFactory()
     def record_factory(*args, **kwargs):
         record = old_factory(*args, **kwargs)
-        record.current_pc = hex(emu.arch.regs.arch_pc) if hasattr(emu, '._arch') else 'undefined'
+        record.current_pc = f'0x{emu.arch.regs.arch_pc:0X}' if hasattr(emu, '_arch') else 'undefined'
         return record
     logging.setLogRecordFactory(record_factory)
 

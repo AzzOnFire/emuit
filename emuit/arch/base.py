@@ -106,10 +106,11 @@ class EmuArch(object):
                     self.log.warning(f'maximum count of unwind attempts reached ({self.UNWIND_MAX_ATTEMPTS})')
                     continue
 
-                self.log.info(f'unwind to 0x{handler.pc:0X} ({handler.label}) with SP: 0x{handler.sp:0X}')
+                self.log.info(f'unwind to IP=0x{handler.pc:0X} ({handler.label}), SP=0x{handler.sp:0X}')
                 self.regs.arch_pc = handler.pc
                 self.regs.arch_sp = handler.sp
-                return
+                return True
+        return False
 
     def stack_init(self, size: int = 1 * 1024 * 1024):
         base = self._emu.mem.map_anywhere(size)
