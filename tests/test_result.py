@@ -1,33 +1,30 @@
-from emuit import Result
+from emuit import Buffer
 
 import pytest
 
 
 @pytest.fixture
-def ascii() -> Result:
-    return Result({0x10000: b'ascii string'})
+def ascii() -> Buffer:
+    return Buffer(0x10000, b'ascii string')
 
 
 @pytest.fixture
-def unicode() -> Result:
-    return Result({0x10000: b'u\x00n\x00i\x00c\x00o\x00d\x00e\x00 \x00s\x00t\x00r\x00i\x00n\x00g\x00'})
+def unicode() -> Buffer:
+    return Buffer(0x10000, b'u\x00n\x00i\x00c\x00o\x00d\x00e\x00 \x00s\x00t\x00r\x00i\x00n\x00g\x00')
 
 
 @pytest.fixture
-def unicode_short() -> Result:
-    return Result({0x10000: b'u\x00n\x00i\x00c\x00'})
+def unicode_short() -> Buffer:
+    return Buffer(0x10000, b'u\x00n\x00i\x00c\x00')
 
 
-def test_ascii_pretty(ascii: Result):
-    res = ascii.pretty()
-    assert res[0x10000] == 'ascii string'
+def test_ascii_pretty(ascii: Buffer):
+    assert ascii.try_decode() == 'ascii string'
 
 
-def test_unicode_pretty(unicode: Result):
-    res = unicode.pretty()
-    assert res[0x10000] == 'unicode string'
+def test_unicode_pretty(unicode: Buffer):
+    assert unicode.try_decode() == 'unicode string'
 
 
-def test_unicode_short_pretty(unicode_short: Result):
-    res = unicode_short.pretty()
-    assert res[0x10000] == 'unic'
+def test_unicode_short_pretty(unicode_short: Buffer):
+    assert unicode_short.try_decode() == 'unic'

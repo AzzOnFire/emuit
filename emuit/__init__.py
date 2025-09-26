@@ -1,13 +1,21 @@
-from .base import EmuIt
-from .x86_64 import EmuItX86_64
-from .result import Result
+from .emuit import EmuIt
+from .utils import Buffer
 
-
-__all__ = [EmuIt, EmuItX86_64, Result]
-
+__all__ = [
+    EmuIt,
+    Buffer,
+]
 
 try:
     from .ida import EmuItIda
-    __all__.append(EmuItIda)
+    from .ida_utils import IdaCommentUtils, IdaUiUtils
+
+    __all__.extend(
+        [
+            EmuItIda,
+            IdaCommentUtils,
+            IdaUiUtils,
+        ]
+    )
 except ImportError:
-    pass
+    print("IDA modules unavailable")

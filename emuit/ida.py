@@ -1,9 +1,10 @@
 from typing import Any, Union
 
-from .x86_64 import EmuItX86_64
+from .emuit import EmuIt
+from .ida_utils import IdaUcUtils
 
+import unicorn as uc
 import idaapi
-import ida_ida
 import ida_segment
 import ida_bytes
 import ida_ua
@@ -12,48 +13,53 @@ import idautils
 import ida_idp
 import ida_funcs
 import ida_name
+import ida_hexrays
+import ida_typeinf
+import ida_nalt
 import idc
 
 
-class EmuItIda(EmuItX86_64):
+class EmuItIda(EmuIt):
     SKIP_WRITE_MEM_INSNS = {
-        ida_allins.NN_call, ida_allins.NN_callfi, ida_allins.NN_callni,
-        ida_allins.NN_enter, ida_allins.NN_enterw,
-        ida_allins.NN_enterd, ida_allins.NN_enterq,
-        ida_allins.NN_pusha, ida_allins.NN_pushaw,
-        ida_allins.NN_pushad, ida_allins.NN_pushaq,
-        ida_allins.NN_pushfw, ida_allins.NN_pushf,
-        ida_allins.NN_pushfd, ida_allins.NN_pushfq,
+        ida_allins.NN_call,
+        ida_allins.NN_callfi,
+        ida_allins.NN_callni,
+        ida_allins.NN_enter,
+        ida_allins.NN_enterw,
+        ida_allins.NN_enterd,
+        ida_allins.NN_enterq,
+        ida_allins.NN_pusha,
+        ida_allins.NN_pushaw,
+        ida_allins.NN_pushad,
+        ida_allins.NN_pushaq,
+        ida_allins.NN_pushfw,
+        ida_allins.NN_pushf,
+        ida_allins.NN_pushfd,
+        ida_allins.NN_pushfq,
     }
 
-    def __init__(self, skip_api_calls=False):
-        self.skip_api_calls = skip_api_calls
-        bitness = 64 if ida_ida.inf_is_64bit() else 32
+    def __init__(self, enable_unwind: bool = True):
+        self.enable_unwind = enable_unwind
+        uc_architecture, uc_mode = IdaUcUtils.get_uc_arch_mode()
+        super().__init__(uc_architecture, uc_mode)
 
-        super().__init__(bitness=bitness)
-
-    def luckycall(self, func_call_ea: int, force: bool = True):
+    def smartcall(self, func_call_ea: int):
         refs = list(idautils.CodeRefsFrom(func_call_ea, 0x0))
         if len(refs) != 1:
-            raise ValueError('Wrong call address '
-                             '(must point to existing function)')
+            raise ValueError("Wrong call address (must point to existing function)")
 
         func_ea = refs[0]
         func = ida_funcs.get_func(func_ea)
         ea = func.start_ea
 
-        if force:
-            tinfo = idaapi.tinfo_t()
+        tinfo = idaapi.tinfo_t()
+        if not idaapi.get_tinfo(tinfo, ea):
+            ida_hexrays.decompile(ea)
             if not idaapi.get_tinfo(tinfo, ea):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
-            
-            if not idaapi.apply_tinfo(ea, tinfo, idaapi.TINFO_DEFINITE):
-                raise ValueError(f"Failed to apply prototype at 0x{ea:X}")
-            
-            idc.plan_and_wait(ea, ea + 1)
-        elif func.regargqty != 0:
-            raise AttributeError(f'Please manually edit/apply function {ea:0X} '
-                                    f'prototype or provide "force" flag')
+
+        if not idaapi.apply_callee_tinfo(func_call_ea, tinfo):
+            raise ValueError(f"Failed to apply prototype at 0x{func_call_ea:0X}")
 
         for arg_ea in idaapi.get_arg_addrs(func_call_ea):
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
@@ -63,108 +69,127 @@ class EmuItIda(EmuItX86_64):
             try:
                 self.run(arg_ea, arg_ea + length)
             except Exception:
-                print("Argument {arg_ea:0X} emulation error")
+                self.log.error(f"argument {arg_ea:0X} emulation error")
 
         call_length = ida_ua.decode_insn(ida_ua.insn_t(), func_call_ea)
         return self.run(func_call_ea, func_call_ea + call_length)
 
-    def fastcall(self, function: Union[int, str],
-                 rcx=None, rdx=None, r8=None, r9=None, *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().fastcall(
-            func.start_ea,
-            func.end_ea,
-            rcx=rcx, rdx=rdx, r8=r8, r9=r9,
-            *stack_args)
-
-    def thiscall(self, function: Union[int, str], this: int, *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().thiscall(func.start_ea, func.end_ea, this, *stack_args)
-
-    def stdcall(self, function: Union[int, str], *stack_args):
-        func_ea = self._resolve_name(function)
-        func = ida_funcs.get_func(func_ea)
-        return super().stdcall(func.start_ea, func.end_ea, *stack_args)
-
-    def _hook_unmapped(self, uc, access, address, size, value, data):
+    def _map_from_ida(self, address) -> bool:
+        self.log.debug("trying to map segment")
         n = ida_segment.get_segm_num(address)
         seg = ida_segment.getnseg(n)
         if not seg:
             return False
 
+        seg_name = ida_segment.get_segm_name(seg)
+        self.log.debug(f"found corresponding segment: {seg_name}")
+        seg_size = seg.end_ea - seg.start_ea
         try:
-            size = seg.end_ea - seg.start_ea
-            self.malloc_ex(seg.start_ea, size)
-            self[seg.start_ea] = ida_bytes.get_bytes(seg.start_ea, size)
-        except Exception as e:
-            print(e)
+            self.mem.map(seg.start_ea, seg_size)
+            self.log.debug("segment mapped successfully")
+        except uc.UcError as e:
+            self.log.error(f"unable to map from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
+
+        try:
+            self.mem.write(seg.start_ea, ida_bytes.get_bytes(seg.start_ea, seg_size))
+
+            # replace default value for unitialized data to 0x00 (instead 0xFF)
+            unk_start_ea = seg.end_ea
+            while not idaapi.is_loaded(unk_start_ea) and unk_start_ea > seg.start_ea:
+                unk_start_ea -= 1
+            unk_size = seg.end_ea - unk_start_ea
+            if unk_size:
+                self.mem.write(unk_start_ea, b'\0' * unk_size)
+            
+            self.log.debug("segment data copied successfully")
+        except uc.UcError as e:
+            self.log.error(f"unable to copy from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
             return False
 
         return True
 
+    def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
+        self.log.warning(f"unmapped write to 0x{address:0X}")
+        if not self._map_from_ida(address):
+            self.mem.map(address, 0x1000)
+
+        return self._hook_mem_write(user_data, address, size)
+
+    def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
+        self.log.warning("unmapped fetch")
+        return self._map_from_ida(address)
+
+    def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
+        self.log.warning(f"unmapped read from 0x{address:0X}")
+        return self._map_from_ida(address)
+
     def _hook_mem_write(self, uc, access, address, size, value, user_data):
-        ip = self['*IP']
         insn = ida_ua.insn_t()
-        inslen = ida_ua.decode_insn(insn, ip)
+        inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
         if not inslen or insn.itype in self.SKIP_WRITE_MEM_INSNS:
             return
 
-        user_data.update([address + offset for offset in range(0, size)])
+        super()._hook_mem_write(uc, access, address, size, value, user_data)
 
     def _hook_code(self, uc, address, size, user_data):
-        if self.skip_api_calls:
-            ip = self['*IP']
-            self._skip_api_call(ip)
+        super()._hook_code(uc, address, size, user_data)
+
+        if self.enable_unwind:
+            insn = ida_ua.insn_t()
+            inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
+            # TODO: include indirect_jump_insn() to unwinding ?
+            if inslen and ida_idp.is_call_insn(insn):
+                call_target_ea = insn.ops[0].addr
+                purged = self.get_purged_bytes_number(call_target_ea)
+                self.arch.add_unwind_record(
+                    return_ea=self.arch.regs.arch_pc + inslen,
+                    sp_value=self.arch.regs.arch_sp + purged,
+                    label=idaapi.get_name(call_target_ea),
+                )
 
     @staticmethod
-    def _resolve_name(value: Union[Any, str]):
+    def get_purged_bytes_number(func_ea: int) -> int:
+        tif = ida_typeinf.tinfo_t()
+        if not ida_nalt.get_tinfo(tif, func_ea):
+            return 0
+
+        if tif.is_funcptr():
+            data = ida_typeinf.ptr_type_data_t()
+            if not tif.get_ptr_details(data):
+                return 0
+
+            tif = data.obj_type
+
+        return tif.calc_purged_bytes()
+
+    def _hook_error(self, e):
+        super()._hook_error(e)
+
+        self.log.debug("last instructions trace:")
+        for insn_ea in self._insn_trace:
+            flags = idaapi.GENDSM_REMOVE_TAGS
+            line = idaapi.generate_disasm_line(insn_ea, flags)
+            self.log.debug(f"0x{insn_ea:0X}: {line}")
+
+        if self.arch.unwind():
+            return True
+
+        insn = ida_ua.insn_t()
+        inslen = ida_ua.decode_insn(insn, self.arch.regs.arch_pc)
+        if inslen:
+            self.log.debug(f"Skip 1 instruction: 0x{self.arch.regs.arch_pc:0X}")
+            self.arch.regs.arch_pc += inslen
+
+        return True
+
+    @staticmethod
+    def _get_name_ea(value: Union[Any, str]):
         if isinstance(value, str):
             ea = idaapi.get_name_ea(idaapi.BADADDR, value)
             if ea != idaapi.BADADDR:
                 return ea
 
         return value
-
-    def __setitem__(self, destination: Union[str, int], value: Any):
-        if isinstance(destination, str):
-            destination = self._resolve_name(destination)
-
-        return super().__setitem__(destination, value)
-
-    def __getitem__(self, source: Union[str, slice]):
-        if isinstance(source, str):
-            source = self._resolve_name(source)
-        elif isinstance(source, slice):
-            start = self._resolve_name(source.start)
-            stop = self._resolve_name(source.stop)
-            source = slice(start, stop)
-
-        return super().__getitem__(source)
-
-    def _skip_api_call(self, call_ea: int):
-        insn = ida_ua.insn_t()
-        inslen = ida_ua.decode_insn(insn, call_ea)
-        if not inslen:
-            return
-
-        if ida_idp.is_call_insn(insn) and self._is_api_call(call_ea):
-            arg_addrs = idaapi.get_arg_addrs(call_ea)
-            arg_addrs = arg_addrs if arg_addrs is not None else []
-
-            print(f'Skip API call at 0x{call_ea:0X}...')
-            for arg_ea in arg_addrs:
-                arg_insn = ida_ua.insn_t() 
-                if not ida_ua.decode_insn(arg_insn, arg_ea):
-                    continue
-
-                # TODO understand why argsize attribute
-                # do not working with api calls
-                if 'push' in arg_insn.get_canon_mnem():
-                    self['*SP'] += self.bytesize
-
-            self['*IP'] += inslen
 
     @staticmethod
     def _is_api_call(call_ea: int):
