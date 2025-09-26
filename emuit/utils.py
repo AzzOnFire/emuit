@@ -57,3 +57,6 @@ class Buffer(bytes):
         metric += sum([0.1 for x in self if x == 0x00])
 
         return (metric / len(self)) if metric > 0 else 0
+
+    def __repr__(self):
+        return f'Buffer(pc=0x{self.write_instruction_ea:0X}, ea=0x{self.ea}, data={self})'

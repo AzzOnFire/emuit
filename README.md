@@ -29,7 +29,7 @@ emu = EmuIt.create(architecture='x86', bitness=64)
 Memory and registers operations just like in [Qiling](https://github.com/qilingframework/qiling):
 ```python
 buffer = emu.mem[0x400000:0x401000]  # read memory region
-emu.mem[0x1002F0C8:] = b"string"     # write string at address
+emu.mem[0x1002F0C8] = b"string"     # write string at address
 
 ip = emu.arch.regs.arch_pc           # get RIP value
 emu.arch.regs['RDX'] = 0xABCDEF      # access by register name
@@ -42,7 +42,7 @@ value = emu.arch.stack_pop()         # pop value from stack
 Emulate arbitrary code chunk:
 ```python
 results = emu.run(0x100000, 0x100020)
->>> {0x3000: 'decrypted string...', 0x24000: 'stack junk...', ...}
+>>> [Buffer(pc=0x20030, ea=0x100016, data=b'plain')]
 ```
 
 Call function:

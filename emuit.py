@@ -106,7 +106,7 @@ class EmuItPlugin(idaapi.plugin_t):
             IdaUiUtils.refresh_current_viewer()
 
         for buffer in buffers:
-            self.emu.log.info(f'at 0x{buffer.write_instruction_ea:0X} to 0x{buffer.ea:0X}: {buffer}')
+            self.emu.log.info(f'(PC:0x{buffer.write_instruction_ea:0X}) 0x{buffer.ea:0X}: {buffer}')
 
         self.emu.log.info('finish')
 
