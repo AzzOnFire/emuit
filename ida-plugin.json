@@ -7,13 +7,14 @@
       "logoPath": "images/logo.png",
       "idaVersions": ">=8.3",
       "description" : "Easy-to-use IDA PRO emulator plugin based on unicorn",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "license": "GPL-3.0",
       "urls": {
-        "repository": "https://github.com/AzzOnFire/yarka"
+        "repository": "https://github.com/AzzOnFire/emuit"
       },
       "authors": [{
-        "name": "AzzOnFire"
+        "name": "AzzOnFire",
+        "email": "malanov.io@gmail.com"
       }],
       "keywords": [
         "deobfuscation",
@@ -22,6 +23,10 @@
         "malware-analysis",
         "emulate-selection",
         "strings-extraction"
+      ],
+      "pythonDependencies": [
+        "unicorn>=2.1.2"
       ]
     }
 }
+
