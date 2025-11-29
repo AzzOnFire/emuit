@@ -99,7 +99,7 @@ class EmuItPlugin(idaapi.plugin_t):
         buffers = self.emu.run(start_ea, end_ea)
 
         if self.show_comments:
-            candidates = filter(lambda x: x.metric_printable() > 0.6, buffers)
+            candidates = filter(lambda x: x.metric_decodable() > 0.6, buffers)
             for candidate in candidates:
                 self.emu.log.info(f'add comment to 0x{candidate.write_instruction_ea:0X}')
                 IdaCommentUtils.add_comment(candidate.write_instruction_ea, candidate.try_decode())

@@ -11,6 +11,7 @@ from .utils import Buffer
 
 
 class EmuIt(object):
+    MERGE_WRITE_ADDRESS_ACCURACY = 28
     RUN_ATTEMPTS = 16
 
     def __init__(self, uc_architecture: int, uc_mode: int):
@@ -158,7 +159,7 @@ class EmuIt(object):
             if (
                 i == 0
                 or addresses[i] != (addresses[i - 1] + 0x1)
-                or abs(entries[ea] - entries[current_buffer_ea]) > 16
+                or abs(entries[ea] - entries[current_buffer_ea]) > self.MERGE_WRITE_ADDRESS_ACCURACY
             ):
                 current_buffer_ea = ea
             chains[current_buffer_ea] += 1
