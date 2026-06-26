@@ -49,7 +49,7 @@ class IdaUcUtils(object):
 
     @classmethod
     def get_uc_arch_mode(cls):
-        proc = cls.get_processor_name()
+        proc = cls.get_processor_name().lower()
         mode = cls.get_uc_bitness()
         if proc == "metapc":
             arch = uc.unicorn_const.UC_ARCH_X86
@@ -59,10 +59,16 @@ class IdaUcUtils(object):
                 if mode == uc.unicorn_const.UC_MODE_64
                 else uc.unicorn_const.UC_ARCH_ARM
             )
+            mode = uc.unicorn_const.UC_MODE_ARM
+            mode |= (
+                uc.unicorn_const.UC_MODE_BIG_ENDIAN
+                if "armeb" in proc
+                else uc.unicorn_const.UC_MODE_ARM
+            )
         elif "mips" in proc:  # mipsb, mipsl
             mode |= (
                 uc.unicorn_const.UC_MODE_BIG_ENDIAN
-                if "mispb" in proc
+                if "mipsb" in proc
                 else uc.unicorn_const.UC_MODE_LITTLE_ENDIAN
             )
             arch = uc.unicorn_const.UC_ARCH_MIPS
@@ -89,7 +95,7 @@ class IdaUcUtils(object):
         elif "68k" in proc:
             arch = uc.unicorn_const.UC_ARCH_M68K
         else:
-            raise ValueError("Unsupported arch")
+            raise ValueError(f"Unsupported arch: '{proc}'")
 
         return arch, mode
 

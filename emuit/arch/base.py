@@ -57,6 +57,11 @@ class EmuArch(object):
 
     @property
     def bitness(self) -> int:
+        if self._uc_architecture == uc.unicorn_const.UC_ARCH_ARM64:
+            return 64
+        if self._uc_architecture == uc.unicorn_const.UC_ARCH_ARM:
+            return 32
+            
         if self._uc_mode & uc.unicorn_const.UC_MODE_64:
             return 64
         if self._uc_mode & uc.unicorn_const.UC_MODE_32:

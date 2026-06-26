@@ -25,15 +25,16 @@ class EmuRegs:
 
     @property
     def _pc_name(self) -> int:
+        if self._arch.uc_architecture == uc.unicorn_const.UC_ARCH_X86:
+            return {
+                uc.unicorn_const.UC_MODE_64: uc.x86_const.UC_X86_REG_RIP,
+                uc.unicorn_const.UC_MODE_32: uc.x86_const.UC_X86_REG_EIP,
+                uc.unicorn_const.UC_MODE_16: uc.x86_const.UC_X86_REG_IP,
+            }[self._arch.uc_mode]
         return {
             uc.unicorn_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_PC,
             uc.unicorn_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_PC,
             uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_PC,
-            uc.unicorn_const.UC_ARCH_X86: {
-                uc.unicorn_const.UC_MODE_64: uc.x86_const.UC_X86_REG_RIP,
-                uc.unicorn_const.UC_MODE_32: uc.x86_const.UC_X86_REG_EIP,
-                uc.unicorn_const.UC_MODE_16: uc.x86_const.UC_X86_REG_IP,
-            }[self._arch.uc_mode],
             # uc.unicorn_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_PC,
             uc.unicorn_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_PC,
             uc.unicorn_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_PC,
@@ -44,15 +45,16 @@ class EmuRegs:
 
     @property
     def _sp_name(self):
+        if self._arch.uc_architecture == uc.unicorn_const.UC_ARCH_X86:
+            return {
+                uc.unicorn_const.UC_MODE_64: uc.x86_const.UC_X86_REG_RSP,
+                uc.unicorn_const.UC_MODE_32: uc.x86_const.UC_X86_REG_ESP,
+                uc.unicorn_const.UC_MODE_16: uc.x86_const.UC_X86_REG_SP,
+            }[self._arch.uc_mode]
         return {
             uc.unicorn_const.UC_ARCH_ARM: uc.arm_const.UC_ARM_REG_SP,
             uc.unicorn_const.UC_ARCH_ARM64: uc.arm64_const.UC_ARM64_REG_SP,
             uc.unicorn_const.UC_ARCH_MIPS: uc.mips_const.UC_MIPS_REG_SP,
-            uc.unicorn_const.UC_ARCH_X86: {
-                uc.unicorn_const.UC_MODE_64: uc.x86_const.UC_X86_REG_RSP,
-                uc.unicorn_const.UC_MODE_32: uc.x86_const.UC_X86_REG_ESP,
-                uc.unicorn_const.UC_MODE_16: uc.x86_const.UC_X86_REG_SP,
-            }[self._arch.uc_mode],
             # uc.unicorn_const.UC_ARCH_PPC: uc.ppc_const.UC_PPC_REG_1, # R1
             uc.unicorn_const.UC_ARCH_SPARC: uc.sparc_const.UC_SPARC_REG_SP,
             uc.unicorn_const.UC_ARCH_M68K: uc.m68k_const.UC_M68K_REG_A7,
@@ -60,7 +62,7 @@ class EmuRegs:
             uc.unicorn_const.UC_ARCH_S390X: uc.s390x_const.UC_S390X_REG_R15,
             uc.unicorn_const.UC_ARCH_TRICORE: uc.tricore_const.UC_TRICORE_REG_SP,
         }[self._arch.uc_architecture]
-
+        
     def _reg_id_by_name(self, register: str):
         # bitness-neutral access for x86
         if (
