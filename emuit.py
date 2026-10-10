@@ -2,7 +2,11 @@ import sys
 import traceback
 
 import idaapi
+import idc
+import ida_hexrays
+import ida_funcs
 import ida_kernwin
+import ida_name
 import idautils
 
 from emuit import EmuItIda, IdaUiUtils, IdaCommentUtils 
@@ -31,6 +35,10 @@ class EmuItPlugin(idaapi.plugin_t):
     help = ''
     wanted_name = PLUGIN_NAME
     wanted_hotkey = ''
+
+    # Longer results are cut in comments: IDA keeps only 1024 characters of a
+    # disassembly comment, and a pseudocode comment is shown as one line.
+    MAX_COMMENT_LENGTH = 1024
 
     def banner(self):
         print('=' * 52, '\n', ' ' * 52)
@@ -111,15 +119,104 @@ class EmuItPlugin(idaapi.plugin_t):
         self.emu.log.info('finish')
 
     def action_emulate_calls_handler(self, ctx):
+        if ctx.widget_type != idaapi.BWN_FUNCS:
+            self.emu.log.error('select the functions in the Functions view')
+            return
+
+        # an indirect call (e.g. through a jump table) can reference several
+        # of the selected functions: emulate each call site once
+        done = set()
         for idx in ctx.chooser_selection:
-            name, *_ = ida_kernwin.get_chooser_data(ctx.widget_title, idx)
-            ea = idaapi.get_name_ea(idaapi.BADADDR, name)
+            # The selection holds function numbers. Looking the function up
+            # by its displayed name fails: get_chooser_data() returns None
+            # for this view (IDA 9.4), and C++ names are shown demangled.
+            func = ida_funcs.getn_func(idx)
+            if func is None:
+                continue
+            ea = func.start_ea
+            name = ida_name.get_short_name(ea)
             self.emu.log.info(f'emulate calls of "{name}" (0x{ea:0X})')
 
-            xrefs = list(idautils.XrefsTo(ea, idaapi.XREF_FAR))
-            for xref in xrefs:
-                self.emu.log.info(f'emulate call of "{name}" at 0x{xref.frm:0X}')
-                self.emu.smartcall(xref.frm)
+            # Only call references. Data references (function pointer tables,
+            # vtables, exception tables) and tail-call jumps can't be emulated
+            # as calls. The reference type is used rather than decoding the
+            # source: is_call_insn() raises on data addresses that don't
+            # decode, and returns True for data bytes that happen to decode
+            # as a call.
+            call_sites = [
+                xref.frm
+                for xref in idautils.XrefsTo(ea, idaapi.XREF_FAR)
+                if xref.type in (idaapi.fl_CN, idaapi.fl_CF) and xref.frm not in done
+            ]
+            done.update(call_sites)
+            for call_ea in call_sites:
+                self.emu.log.info(f'emulate call of "{name}" at 0x{call_ea:0X}')
+                if self.reset_every_run:
+                    self.emu.reset()
+
+                # one failing call site must not stop the remaining ones
+                try:
+                    buffers = self.emu.smartcall(call_ea)
+                    self._show_call_results(call_ea, buffers)
+                except Exception as e:
+                    self.emu.log.error(f'call at 0x{call_ea:0X} failed: {e}')
+
+        IdaUiUtils.refresh_current_viewer()
+        self.emu.log.info('finish')
+
+    def _show_call_results(self, call_ea, buffers):
+        for buffer in buffers:
+            self.emu.log.info(f'(call 0x{call_ea:0X}) 0x{buffer.ea:0X}: {buffer}')
+
+        if not self.show_comments:
+            return
+
+        # Comment at the call site: every call to the function shares the
+        # same write instructions inside it, so comments there would
+        # overwrite each other.
+        decoded = []
+        for buffer in buffers:
+            if buffer.metric_decodable() <= 0.6:
+                continue
+            # one buffer that fails to decode must not lose the others
+            try:
+                text = buffer.try_decode()
+            except Exception as e:
+                self.emu.log.warning(f'(call 0x{call_ea:0X}) cannot decode 0x{buffer.ea:0X}: {e}')
+                continue
+            if text:
+                decoded.append(text)
+        if decoded:
+            text = ' | '.join(decoded)
+            if len(text) > self.MAX_COMMENT_LENGTH:
+                text = text[:self.MAX_COMMENT_LENGTH - 3] + '...'
+            self.emu.log.info(f'add comment to 0x{call_ea:0X}')
+            self._comment_call_site(call_ea, text)
+
+    def _comment_call_site(self, call_ea, text):
+        # Call sites often carry the analyst's own comments: add the result
+        # to them instead of replacing them, in both views.
+        disassembly = self._merge_comment(idc.get_cmt(call_ea, 0), text)
+        if disassembly is not None:
+            IdaCommentUtils.add_comment_disassembly(call_ea, disassembly)
+
+        if not ida_hexrays.init_hexrays_plugin():
+            return  # no decompiler for this database
+
+        # A call can be a function's first instruction: comment the call's
+        # line only, keeping the function's own comment
+        IdaCommentUtils.add_comment_pseudocode(
+            call_ea, text, function_comment=False, merge=self._merge_comment
+        )
+
+    @staticmethod
+    def _merge_comment(existing, text):
+        """Comment to write, or None if `text` is already there."""
+        if not existing:
+            return text
+        if text in existing.splitlines():
+            return None
+        return f'{existing}\n{text}'
 
     def action_reset_handler(self, ctx):
         self.emu.reset()

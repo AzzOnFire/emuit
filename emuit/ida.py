@@ -58,10 +58,23 @@ class EmuItIda(EmuIt):
             if not idaapi.get_tinfo(tinfo, ea):
                 raise ValueError(f"No type information for function at 0x{ea:X}")
 
-        if not idaapi.apply_callee_tinfo(func_call_ea, tinfo):
-            raise ValueError(f"Failed to apply prototype at 0x{func_call_ea:0X}")
+        # Emulate the instructions that set up the arguments, if IDA can find
+        # them. It can't when the function has no parameters, or when an
+        # argument isn't set near the call (e.g. passed through from a
+        # previous call's return value, or a parameter the decompiler only
+        # guessed): apply_callee_tinfo() then returns False and
+        # get_arg_addrs() returns None. The call itself is still emulated.
+        arg_addrs = []
+        if tinfo.get_nargs() > 0:
+            if idaapi.apply_callee_tinfo(func_call_ea, tinfo):
+                arg_addrs = idaapi.get_arg_addrs(func_call_ea) or []
+            else:
+                self.log.warning(
+                    f"could not locate the arguments of the call at 0x{func_call_ea:0X}; "
+                    "emulating the call without setting them up"
+                )
 
-        for arg_ea in idaapi.get_arg_addrs(func_call_ea):
+        for arg_ea in arg_addrs:
             length = ida_ua.decode_insn(ida_ua.insn_t(), arg_ea)
             if length == 0:
                 continue

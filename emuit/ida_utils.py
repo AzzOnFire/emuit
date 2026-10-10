@@ -107,13 +107,15 @@ class IdaCommentUtils():
     # many thanks to:
     # https://github.com/mrexodia/ida-pro-mcp/blob/main/src/ida_pro_mcp/mcp-plugin.py#L1153
     @staticmethod
-    def add_comment_pseudocode(ea: int, text: str):
+    def add_comment_pseudocode(ea: int, text: str, function_comment: bool = True, merge=None):
+        """With `merge`, a comment already at the line is combined with `text`:
+        merge(existing, text) returns the new comment, or None to leave it."""
         error = ida_hexrays.hexrays_failure_t()
         cfunc = ida_hexrays.decompile_func(ea, error, ida_hexrays.DECOMP_WARNINGS)
         if not cfunc:
             return
         
-        if ea == cfunc.entry_ea:
+        if function_comment and ea == cfunc.entry_ea:
             idc.set_func_cmt(ea, text, True)
             cfunc.refresh_func_ctext()
         
@@ -124,24 +126,73 @@ class IdaCommentUtils():
         
         nearest_ea = eamap[ea][0].ea
 
-        # Remove existing orphan comments
+        # The placement below detects an invalid location by the function
+        # having orphan comments, so set aside the existing ones (often the
+        # analyst's, e.g. after retyping) and put them back afterwards.
+        # Refresh first: a comment saved since this (cached) decompilation
+        # was last refreshed counts as an orphan until then.
+        cfunc.refresh_func_ctext()
+        orphans = []
         if cfunc.has_orphan_cmts():
+            before = IdaCommentUtils._user_cmts(cfunc.entry_ea)
             cfunc.del_orphan_cmts()
             cfunc.save_user_cmts()
+            kept = IdaCommentUtils._user_cmts(cfunc.entry_ea)
+            orphans = [(loc, cmt) for loc, cmt in before if (loc.ea, loc.itp) not in {(k.ea, k.itp) for k, _ in kept}]
 
-        # Set the comment by trying all possible item types
-        tl = idaapi.treeloc_t()
-        tl.ea = nearest_ea
-        for itp in range(idaapi.ITP_SEMI, idaapi.ITP_COLON):
-            tl.itp = itp
-            cfunc.set_user_cmt(tl, text)
-            cfunc.save_user_cmts()
-            cfunc.refresh_func_ctext()
-            if not cfunc.has_orphan_cmts():
-                return
-            cfunc.del_orphan_cmts()
-            cfunc.save_user_cmts()
+        placed = None
+        try:
+            # Set the comment by trying the possible item types. ITP_BRACE2
+            # (after the condition of an if/while/...) comes before the block
+            # braces: for a call inside a condition, ITP_CURLY1 is valid too,
+            # but puts the comment on the line of the enclosing block's '{'.
+            tl = idaapi.treeloc_t()
+            tl.ea = nearest_ea
+            for itp in (idaapi.ITP_SEMI, idaapi.ITP_BRACE2, idaapi.ITP_CURLY1, idaapi.ITP_CURLY2):
+                tl.itp = itp
+                if merge is not None:
+                    # the orphans were set aside, so a comment here is shown
+                    existing = cfunc.get_user_cmt(tl, ida_hexrays.RETRIEVE_ALWAYS)
+                    if existing:
+                        merged = merge(existing, text)
+                        if merged is not None:
+                            cfunc.set_user_cmt(tl, merged)
+                            cfunc.save_user_cmts()
+                            cfunc.refresh_func_ctext()
+                        placed = (tl.ea, tl.itp)
+                        return
+                cfunc.set_user_cmt(tl, text)
+                cfunc.save_user_cmts()
+                cfunc.refresh_func_ctext()
+                if not cfunc.has_orphan_cmts():
+                    placed = (tl.ea, tl.itp)
+                    return
+                cfunc.del_orphan_cmts()
+                cfunc.save_user_cmts()
+        finally:
+            for loc, cmt in orphans:
+                if (loc.ea, loc.itp) != placed:  # never over the comment just set
+                    cfunc.set_user_cmt(loc, cmt)
+            if orphans:
+                cfunc.save_user_cmts()
+                cfunc.refresh_func_ctext()
 
+    @staticmethod
+    def _user_cmts(func_ea: int):
+        """The function's pseudocode comments, as (treeloc_t, text) pairs."""
+        result = []
+        cmts = ida_hexrays.restore_user_cmts(func_ea)
+        if cmts is None:
+            return result
+        it = ida_hexrays.user_cmts_begin(cmts)
+        while it != ida_hexrays.user_cmts_end(cmts):
+            src = ida_hexrays.user_cmts_first(it)
+            loc = idaapi.treeloc_t()
+            loc.ea, loc.itp = src.ea, src.itp
+            result.append((loc, str(ida_hexrays.user_cmts_second(it))))
+            it = ida_hexrays.user_cmts_next(it)
+        ida_hexrays.user_cmts_free(cmts)
+        return result
 
 class IdaUiUtils():
     @staticmethod
