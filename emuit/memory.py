@@ -45,11 +45,7 @@ class EmuMemory(object):
 
         to_delete = []
         for i, (start, end) in enumerate(self.mapping):
-            if (
-                (start <= _start and _end <= end)
-                or (start <= _start < end)
-                or (start < _end <= end)
-            ):
+            if start < _end and _start < end:  # any overlap, including containment
                 if merge:
                     _start = min(start, _start)
                     _end = max(end, _end)
@@ -60,21 +56,31 @@ class EmuMemory(object):
                         f"already allocated with 0x{start:0X}-0x{end:0X}"
                     )
 
+        # Save the contents of the blocks being merged; pop from the end so
+        # the remaining indices stay valid.
         temp = {}
-        for i in to_delete:
+        for i in reversed(to_delete):
             start, end = self.mapping.pop(i)
-            temp[start] = self.read(start, end - start)
+            temp[(start, end)] = self.read(start, end - start)
             self._engine.mem_unmap(start, end - start)
 
-        bisect.insort(self.mapping, (_start, _end))
-
         try:
-            self._engine.mem_map(address, size)
+            # map the merged range, not only the requested one
+            self._engine.mem_map(_start, _end - _start)
         except Exception as e:
+            # put the merged blocks back, so self.mapping keeps matching
+            # what Unicorn has mapped
+            for (start, end), data in temp.items():
+                self._engine.mem_map(start, end - start)
+                self._engine.mem_write(start, data)
+                bisect.insort(self.mapping, (start, end))
             self.log.debug('mapping error, print current memory map:')
             for start, end in self.mapping:
                 self.log.debug(f'0x{start:0X} - 0x{end:0X}')
             raise e
+
+        # record the block only once Unicorn has actually mapped it
+        bisect.insort(self.mapping, (_start, _end))
 
         for (start, end), data in temp.items():
             self.write(start, data)

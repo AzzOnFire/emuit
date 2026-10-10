@@ -78,42 +78,103 @@ class EmuItIda(EmuIt):
         self.log.debug("trying to map segment")
         n = ida_segment.get_segm_num(address)
         seg = ida_segment.getnseg(n)
-        if not seg:
-            return False
+        if seg:
+            self.log.debug(f"found corresponding segment: {ida_segment.get_segm_name(seg)}")
+            range_start, range_end = seg.start_ea, seg.end_ea
+        else:
+            # Not inside a segment, e.g. padding between two segments. If the
+            # page still holds segment data, map that page; mapping it blank
+            # would hide the neighbouring segments' data for good.
+            range_start = address & ~0xFFF
+            range_end = range_start + 0x1000
+            if not any(
+                ida_segment.getnseg(i).start_ea < range_end
+                and range_start < ida_segment.getnseg(i).end_ea
+                for i in range(ida_segment.get_segm_qty())
+            ):
+                return False
 
-        seg_name = ida_segment.get_segm_name(seg)
-        self.log.debug(f"found corresponding segment: {seg_name}")
-        seg_size = seg.end_ea - seg.start_ea
-        try:
-            self.mem.map(seg.start_ea, seg_size)
-            self.log.debug("segment mapped successfully")
-        except uc.UcError as e:
-            self.log.error(f"unable to map from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
+        # Map only the pages of the range that are not mapped yet. Pages
+        # already mapped hold data the emulated code may have written, and
+        # are left alone. Nothing new to map means an earlier hook (or an
+        # earlier fault) already mapped the range.
+        new_runs = self._unmapped_page_runs(range_start, range_end)
+        if not new_runs:
+            return True
 
-        try:
-            self.mem.write(seg.start_ea, ida_bytes.get_bytes(seg.start_ea, seg_size))
+        # Map and fill one run at a time, so a failure never leaves a mapped
+        # page without its data. Unicorn maps whole pages, so copy every IDA
+        # segment sharing the new pages; otherwise a neighbour (e.g. __const
+        # right after __text) is mapped but left as zeros, and never faults
+        # in to be copied later.
+        for run_start, run_end in new_runs:
+            try:
+                self.mem.map(run_start, run_end - run_start)
+            except uc.UcError as e:
+                self.log.error(f"unable to map from IDB to unicorn (0x{run_start:0X}), exception: {e}")
+                return False
 
-            # replace default value for unitialized data to 0x00 (instead 0xFF)
-            unk_start_ea = seg.end_ea
-            while not idaapi.is_loaded(unk_start_ea) and unk_start_ea > seg.start_ea:
-                unk_start_ea -= 1
-            unk_size = seg.end_ea - unk_start_ea
-            if unk_size:
-                self.mem.write(unk_start_ea, b'\0' * unk_size)
-            
-            self.log.debug("segment data copied successfully")
-        except uc.UcError as e:
-            self.log.error(f"unable to copy from IDB to unicorn (0x{seg.start_ea:0X}), exception: {e}")
-            return False
+            try:
+                for i in range(ida_segment.get_segm_qty()):
+                    other = ida_segment.getnseg(i)
+                    start_ea = max(other.start_ea, run_start)
+                    end_ea = min(other.end_ea, run_end)
+                    if start_ea < end_ea:
+                        self._copy_from_ida(start_ea, end_ea)
+            except uc.UcError as e:
+                self.log.error(f"unable to copy from IDB to unicorn (0x{run_start:0X}), exception: {e}")
+                return False
 
+        self.log.debug("segment mapped and copied successfully")
         return True
+
+    def _unmapped_page_runs(self, start_ea, end_ea):
+        """Contiguous runs of 0x1000-aligned pages in [start_ea, end_ea) not mapped yet."""
+        runs = []
+        page = start_ea & ~0xFFF
+        while page < end_ea:
+            mapped = any(start <= page < end for start, end in self.mem.mapping)
+            if not mapped:
+                if runs and runs[-1][1] == page:
+                    runs[-1] = (runs[-1][0], page + 0x1000)
+                else:
+                    runs.append((page, page + 0x1000))
+            page += 0x1000
+        return runs
+
+    def _copy_from_ida(self, start_ea, end_ea):
+        size = end_ea - start_ea
+        result = ida_bytes.get_bytes_and_mask(start_ea, size)
+        if result is None:
+            self.mem.write(start_ea, b'\0' * size)
+            return
+
+        # IDA returns 0xFF for bytes without a value (uninitialized data);
+        # the mask has one bit per byte, least significant bit first.
+        # Replace those bytes with 0x00.
+        data, mask = result
+        data = bytearray(data[:size])
+        for index, bits in enumerate(mask):
+            if bits == 0xFF:
+                continue
+            base = index * 8
+            if bits == 0:
+                data[base:base + 8] = bytes(len(data[base:base + 8]))
+                continue
+            for bit in range(8):
+                if base + bit < size and not (bits >> bit) & 1:
+                    data[base + bit] = 0
+
+        self.mem.write(start_ea, bytes(data))
 
     def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
         self.log.warning(f"unmapped write to 0x{address:0X}")
-        if not self._map_from_ida(address):
-            self.mem.map(address, 0x1000)
+        # outside the database: a blank page, within the per-run limit
+        if not self._map_from_ida(address) and not self._map_fallback_page(address):
+            return False
 
-        return self._hook_mem_write(user_data, address, size)
+        self._hook_mem_write(uc, access, address, size, value, user_data)
+        return True
 
     def _hook_mem_fetch_unmapped(self, uc, access, address, size, value, user_data):
         self.log.warning("unmapped fetch")

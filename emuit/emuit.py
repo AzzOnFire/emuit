@@ -1,3 +1,4 @@
+import bisect
 from collections import Counter, deque
 import logging
 from typing import Literal
@@ -13,11 +14,22 @@ from .utils import Buffer
 class EmuIt(object):
     MERGE_WRITE_ADDRESS_ACCURACY = 28
     RUN_ATTEMPTS = 16
+    # Upper bounds for one run(), so code emulated with wrong inputs (e.g. a
+    # garbage length or pointer) can't run or allocate memory forever.
+    # None disables a limit.
+    MAX_INSTRUCTIONS = 5_000_000
+    MAX_FALLBACK_PAGES = 256  # blank pages mapped for writes outside known memory
 
     def __init__(self, uc_architecture: int, uc_mode: int):
         self._uc_architecture = uc_architecture
         self._uc_mode = uc_mode
         self._insn_trace: deque[int] = deque(maxlen=10)
+        self._insn_count = 0
+        self._insn_limit_hit = False
+        self._fallback_pages = 0
+        self._fallback_limit_hit = False
+        self._write_sources: dict[int, int] = {}
+        self._hooked_engine = None
         self._log = create_logger(self)
         self.reset()
 
@@ -101,12 +113,39 @@ class EmuIt(object):
         else:
             source = self.arch.regs.arch_pc
 
-        user_data.update({address + offset: source for offset in range(0, size)})
+        self._write_sources.update({address + offset: source for offset in range(0, size)})
 
     def _hook_mem_write_unmapped(self, uc, access, address, size, value, user_data):
-        self.mem.map(address, 0x1000)
+        if not self._map_fallback_page(address):
+            return False
+
         self._hook_mem_write(uc, access, address, size, value, user_data)
 
+        return True
+
+    def _map_fallback_page(self, address) -> bool:
+        """Map a blank page for a write to memory nothing else provides.
+
+        Limited to MAX_FALLBACK_PAGES per run(): past that, the write is left
+        unmapped, so a runaway loop stops instead of mapping memory forever.
+        """
+        page = address & ~0xFFF
+        if any(start <= page < end for start, end in self.mem.mapping):
+            return True  # already mapped, e.g. by an earlier hook for this fault
+
+        if self.MAX_FALLBACK_PAGES is not None and self._fallback_pages >= self.MAX_FALLBACK_PAGES:
+            if not self._fallback_limit_hit:
+                self._fallback_limit_hit = True
+                self.log.warning(
+                    f'not mapping more memory for writes outside known memory '
+                    f'(limit: {self.MAX_FALLBACK_PAGES} pages per run, at 0x{address:0X})'
+                )
+            return False
+
+        # map just the page holding the address: an unaligned
+        # map(address, 0x1000) spans two pages
+        self.mem.map(page, 0x1000)
+        self._fallback_pages += 1
         return True
 
     def _hook_mem_read_unmapped(self, uc, access, address, size, value, user_data):
@@ -118,22 +157,23 @@ class EmuIt(object):
     def _hook_code(self, uc, address, size, user_data):
         self._insn_trace.append(address)
 
+        self._insn_count += 1
+        if self.MAX_INSTRUCTIONS is not None and self._insn_count > self.MAX_INSTRUCTIONS:
+            self._insn_limit_hit = True
+            uc.emu_stop()
+
     def _hook_error(self, e):
         self.log.error(f'handle exception {e}')
 
     def run(self, start_ea: int, end_ea: int) -> list[Buffer]:
-        user_data: dict[int, int] = {}
-        self.arch.engine.hook_add(uc.UC_HOOK_MEM_WRITE, self._hook_mem_write, user_data)
-        self.arch.engine.hook_add(
-            uc.UC_HOOK_MEM_WRITE_UNMAPPED, self._hook_mem_write_unmapped, user_data
-        )
-        self.arch.engine.hook_add(
-            uc.UC_HOOK_MEM_READ_UNMAPPED, self._hook_mem_read_unmapped
-        )
-        self.arch.engine.hook_add(
-            uc.UC_HOOK_MEM_FETCH_UNMAPPED, self._hook_mem_fetch_unmapped
-        )
-        self.arch.engine.hook_add(uc.UC_HOOK_CODE, self._hook_code)
+        # limits apply per run(), across all retry attempts
+        self._insn_count = 0
+        self._insn_limit_hit = False
+        self._fallback_pages = 0
+        self._fallback_limit_hit = False
+
+        self._write_sources = {}
+        self._add_hooks()
 
         for _ in range(self.RUN_ATTEMPTS):
             try:
@@ -141,17 +181,51 @@ class EmuIt(object):
                 self.arch.engine.emu_start(start_ea, end_ea)
                 break
             except uc.UcError as e:
+                if self._insn_limit_hit:
+                    break
                 prev_ea = self.arch.regs.arch_pc
                 if not self._hook_error(e) or prev_ea == self.arch.regs.arch_pc:
                     break
                 else:
                     start_ea = self.arch.regs.arch_pc
 
-        return self._post_processing(user_data)
+        if self._insn_limit_hit:
+            self.log.warning(
+                f'emulation stopped after {self.MAX_INSTRUCTIONS:,} instructions '
+                f'(limit per run, at PC 0x{self.arch.regs.arch_pc:0X})'
+            )
+
+        return self._post_processing(self._write_sources)
+
+    def _add_hooks(self):
+        # Once per Unicorn engine (reset() creates a new one). Adding them on
+        # every run() stacks them: each earlier run's hooks fire again, e.g.
+        # counting every instruction once per run so far. Deleting them after
+        # a run instead isn't safe: Unicorn's translated code can still call
+        # a deleted hook, which crashes once Python frees its callback.
+        engine = self.arch.engine
+        if self._hooked_engine is engine:
+            return
+        engine.hook_add(uc.UC_HOOK_MEM_WRITE, self._hook_mem_write)
+        engine.hook_add(uc.UC_HOOK_MEM_WRITE_UNMAPPED, self._hook_mem_write_unmapped)
+        engine.hook_add(uc.UC_HOOK_MEM_READ_UNMAPPED, self._hook_mem_read_unmapped)
+        engine.hook_add(uc.UC_HOOK_MEM_FETCH_UNMAPPED, self._hook_mem_fetch_unmapped)
+        engine.hook_add(uc.UC_HOOK_CODE, self._hook_code)
+        self._hooked_engine = engine
 
     def _post_processing(self, entries: dict[int, int]) -> list[Buffer]:
+        # The write hook records a write before Unicorn checks the address, so
+        # writes that failed (e.g. past MAX_FALLBACK_PAGES) are recorded too:
+        # keep only addresses that are mapped, as only those can be read.
+        starts = [start for start, _ in self.mem.mapping]
+        ends = [end for _, end in self.mem.mapping]
+
+        def is_mapped(ea):
+            i = bisect.bisect_right(starts, ea) - 1
+            return i >= 0 and ea < ends[i]
+
         # chain contiguous memory addresses
-        addresses = sorted(entries.keys())
+        addresses = sorted(ea for ea in entries if is_mapped(ea))
         chains: Counter[int] = Counter()
 
         current_buffer_ea = 0
