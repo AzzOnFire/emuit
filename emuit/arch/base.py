@@ -1,12 +1,31 @@
 from collections import Counter, deque
 from typing import TYPE_CHECKING, Literal
 from dataclasses import dataclass
+import weakref
 
 from .regs import EmuRegs
 if TYPE_CHECKING:
     from emuit import EmuIt
 
 import unicorn as uc
+
+# every unicorn engine created, while it's alive (see detach_engines())
+_ENGINES: "weakref.WeakSet[uc.Uc]" = weakref.WeakSet()
+
+
+def detach_engines():
+    """Make unicorn never close the engines created so far.
+
+    Unicorn closes each engine (uc_close) from a weakref finalizer: when the
+    engine is collected, or at the latest when Python exits. Inside IDA,
+    closing an engine can crash IDA: it did on every exit (IDA 9.4, unicorn
+    2.1.4, macOS). Detached, the engines are left to the operating system
+    when IDA exits.
+    """
+    for engine in list(_ENGINES):
+        finalizer = getattr(engine, '_Uc__finalizer', None)
+        if finalizer is not None:
+            finalizer.detach()
 
 
 @dataclass(frozen=True)
@@ -27,6 +46,7 @@ class EmuArch(object):
         self._uc_mode = uc_mode
         self._uc_architecture = uc_architecture
         self._engine = uc.Uc(uc_architecture, uc_mode)
+        _ENGINES.add(self._engine)
         self._regs: EmuRegs = EmuRegs(self)
         self._unwind_stats: Counter[int] = Counter()
         self._unwind_stack: deque[UnwindHandler] = deque()

@@ -6,6 +6,7 @@ import ida_kernwin
 import idautils
 
 from emuit import EmuItIda, IdaUiUtils, IdaCommentUtils 
+from emuit.arch.base import detach_engines
 
 
 ida_version = tuple(map(int, idaapi.get_kernel_version().split(".")))
@@ -136,6 +137,8 @@ class EmuItPlugin(idaapi.plugin_t):
     def term(self):
         if hasattr(self, 'hooks'):
             self.hooks.unhook()
+        # left to unicorn, the engines are closed as IDA quits, which crashes it
+        detach_engines()
         print('EmuIt: terminated')
 
     def run(self, arg):
